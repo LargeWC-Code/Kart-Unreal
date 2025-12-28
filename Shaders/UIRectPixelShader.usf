@@ -1,0 +1,39 @@
+// UI 矩形渲染 Pixel Shader
+// 使用着色器变体避免运行时条件判断，提高性能
+
+#include "/Engine/Private/Common.ush"
+
+#if USE_TEXTURE
+Texture2D UITexture;
+SamplerState UITextureSampler;
+#endif
+
+void MainPS(
+	in float4 InPosition : SV_POSITION,
+	in float2 InTexCoord : TEXCOORD0,
+	in float4 InColor : COLOR0,
+	out float4 OutColor : SV_Target0
+)
+{
+#if USE_TEXTURE
+	float4 TextureColor;
+	
+	#if IS_A8_FORMAT
+		// A8 格式：使用 R 通道作为 alpha
+		float Alpha = UITexture.Sample(UITextureSampler, InTexCoord).r;
+		TextureColor = float4(InColor.rgb, Alpha * InColor.a);
+	#else
+		TextureColor = UITexture.Sample(UITextureSampler, InTexCoord);
+		TextureColor = TextureColor.rgba;
+	#endif
+	
+	// 纹理颜色与顶点颜色混合
+	OutColor = TextureColor * InColor;
+#else
+	// 直接输出顶点颜色（无纹理）
+	OutColor = InColor;
+#endif
+}
+
+
+

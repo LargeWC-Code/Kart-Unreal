@@ -1,0 +1,23 @@
+// UI 矩形渲染 Vertex Shader
+// 输入：Position (float2) - 已经是 NDC 坐标 [-1,1]，TexCoord (float2), Color (float4)
+// 输出：屏幕空间位置和颜色
+
+#include "/Engine/Private/Common.ush"
+
+void MainVS(
+	in float2 InPosition : ATTRIBUTE0,  // NDC 坐标：X[-1,1], Y[-1,1]，Y轴向下为正
+	in float2 InTexCoord : ATTRIBUTE1,
+	in float4 InColor : ATTRIBUTE2,
+	out float4 OutPosition : SV_POSITION,
+	out float2 OutTexCoord : TEXCOORD0,
+	out float4 OutColor : COLOR0
+)
+{
+	// InPosition 已经是 NDC 坐标，直接使用
+	OutPosition = float4(InPosition, 0.0, 1.0);
+	OutTexCoord = InTexCoord;
+	OutColor = InColor;
+}
+
+
+
