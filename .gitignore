@@ -1,0 +1,11 @@
+/Intermediate/Build
+/.vs
+/Binaries
+/Intermediate/ProjectFiles/*.user
+/Plugins/MagicXCore/Binaries
+/Plugins/MagicXCore/Intermediate
+/Plugins/VoxelCore/Intermediate
+/Plugins/VoxelCore/Binaries
+/Plugins/VoxelEditor/Intermediate
+/Plugins/VoxelEditor/Binaries
+/Saved
