@@ -137,4 +137,9 @@ TMap<FName, TArray<TSharedPtr<FUICommandInfo>>> UVoxelEditorEditorMode::GetModeC
 	return FVoxelEditorEditorModeCommands::Get().GetCommands();
 }
 
+TSharedPtr<FVoxelEditorEditorModeToolkit> UVoxelEditorEditorMode::GetToolkit() const
+{
+	return StaticCastSharedPtr<FVoxelEditorEditorModeToolkit>(Toolkit);
+}
+
 #undef LOCTEXT_NAMESPACE

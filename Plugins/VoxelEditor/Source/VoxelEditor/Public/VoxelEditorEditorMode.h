@@ -49,6 +49,9 @@ public:
 	/** 设置 VoxelWorldEditor 实例 */
 	void SetVoxelWorldEditorInstance(class AVoxelWorldEditor* Instance) { VoxelWorldEditorInstance = Instance; }
 
+	/** 获取 Toolkit（用于更新UI） */
+	TSharedPtr<class FVoxelEditorEditorModeToolkit> GetToolkit() const;
+
 private:
 	/** 当前编辑器模式中的 VoxelWorldEditor 实例 */
 	UPROPERTY()

@@ -31,8 +31,11 @@
 
 FVoxelEditorEditorModeToolkit::FVoxelEditorEditorModeToolkit()
 {
-	// 初始化 32×32 = 1024 个按钮状态，默认为非激活
-	EditToolButtonStates.SetNum(32 * 32, false);
+	// 初始化状态
+	CurrentMapWidth = 0;
+	CurrentMapHeight = 0;
+	bMapLoaded = false;
+	EditToolButtonStates.Empty();
 }
 
 void FVoxelEditorEditorModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost, TWeakObjectPtr<UEdMode> InOwningMode)
@@ -152,16 +155,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 		return EditToolWidget;
 	}
 	
-	// 确保状态数组已初始化（32×32 = 1024个按钮）
-	const int32 GridSize = 16;
-	if (EditToolButtonStates.Num() != GridSize * GridSize)
-	{
-		EditToolButtonStates.SetNum(GridSize * GridSize, false);
-	}
-	
-	// 创建一个带滚动条的区域，包含 32×32 个按钮
-	// 使用嵌套的滚动框来支持水平和垂直滚动
-	// 设置固定的小尺寸可视区域，方便使用滚动条
+	// 创建一个带滚动条的区域
 	const float VisibleWidth = 800.0f;   // 可视区域宽度
 	const float VisibleHeight = 600.0f;  // 可视区域高度
 	
@@ -188,19 +182,67 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 			]
 		];
 	
-	// 创建 32×32 个按钮（总共 1024 个）
-	// 坐标范围：从 -16 到 15（中心是 0,0）
-	const float ButtonSize = 50.0f; // 增大按钮以显示坐标文本
+	// 默认显示空状态（没有加载地图）
+	UpdateEditToolGridFromMap(0, 0);
 	
-	for (int32 Row = 0; Row < GridSize; ++Row)
+	return EditToolWidget;
+}
+
+void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, int32 MapHeight) const
+{
+	// 更新当前地图尺寸
+	CurrentMapWidth = MapWidth;
+	CurrentMapHeight = MapHeight;
+	bMapLoaded = (MapWidth > 0 && MapHeight > 0);
+	
+	// 如果网格面板无效，直接返回
+	if (!EditToolGridPanel.IsValid())
 	{
-		for (int32 Col = 0; Col < GridSize; ++Col)
+		return;
+	}
+	
+	// 清空现有内容
+	EditToolGridPanel->ClearChildren();
+	
+	// 如果没有加载地图，显示提示信息
+	if (!bMapLoaded)
+	{
+		EditToolGridPanel->AddSlot(0, 0)
+			[
+				SNew(SBox)
+				.MinDesiredWidth(400.0f)
+				.MinDesiredHeight(100.0f)
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("NoMapLoaded", "请双击地图列表中的地图以加载并显示编辑界面"))
+					.Justification(ETextJustify::Center)
+					.AutoWrapText(true)
+				]
+			];
+		return;
+	}
+	
+	// 根据地图尺寸创建网格
+	// 确保状态数组大小正确
+	const int32 TotalButtons = MapWidth * MapHeight;
+	if (EditToolButtonStates.Num() != TotalButtons)
+	{
+		EditToolButtonStates.SetNum(TotalButtons, false);
+	}
+	
+	// 创建按钮
+	const float ButtonSize = 50.0f;
+	
+	for (int32 Row = 0; Row < MapHeight; ++Row)
+	{
+		for (int32 Col = 0; Col < MapWidth; ++Col)
 		{
-			int32 ButtonIndex = Row * GridSize + Col;
-			// 计算坐标：X和Y都从-16到15（中心是0,0）
-			// 对于32×32网格，中心位置是(15.5, 15.5)，我们使用(15,15)作为(0,0)的参考点
-			int32 X = Col - (GridSize / 2);  // -16 到 15
-			int32 Y = (GridSize / 2 - 1) - Row; // Y轴反转，使(0,0)在中心附近：15 到 -16
+			int32 ButtonIndex = Row * MapWidth + Col;
+			// 计算坐标：X和Y都从-(MapWidth/2)到(MapWidth/2-1)和-(MapHeight/2)到(MapHeight/2-1)
+			int32 X = Col - (MapWidth / 2);
+			int32 Y = (MapHeight / 2 - 1) - Row; // Y轴反转
 			
 			// 创建坐标文本
 			FString CoordText = FString::Printf(TEXT("%d,%d"), X, Y);
@@ -218,7 +260,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.ButtonStyle(FAppStyle::Get(), "NoBorder")
 						.HAlign(HAlign_Fill)
 						.VAlign(VAlign_Fill)
-						.OnClicked_Lambda([this, ButtonIndex, GridSize, X, Y]()
+						.OnClicked_Lambda([this, ButtonIndex, MapWidth, MapHeight, X, Y]()
 						{
 							if (ButtonIndex >= 0 && ButtonIndex < EditToolButtonStates.Num())
 							{
@@ -272,7 +314,11 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 		}
 	}
 	
-	return EditToolWidget;
+	// 触发刷新
+	if (EditToolGridPanel.IsValid())
+	{
+		EditToolGridPanel->Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void FVoxelEditorEditorModeToolkit::GetToolPaletteNames(TArray<FName>& PaletteNames) const

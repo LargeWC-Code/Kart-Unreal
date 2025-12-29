@@ -23,6 +23,9 @@ public:
 	virtual FName GetToolkitFName() const override;
 	virtual FText GetBaseToolkitName() const override;
 
+	/** 根据地图尺寸更新Edit分页的网格UI */
+	void UpdateEditToolGridFromMap(int32 MapWidth, int32 MapHeight) const;
+
 private:
 	/** 获取 Maps 工具的 Widget */
 	TSharedPtr<SWidget> GetMapsToolWidget() const;
@@ -46,7 +49,7 @@ private:
 	/** 主内容 Widget（包含 WidgetSwitcher） */
 	mutable TSharedPtr<SWidget> MainContentWidget;
 
-	/** Edit 工具按钮的激活状态数组（32×32 = 1024个按钮） */
+	/** Edit 工具按钮的激活状态数组（动态大小） */
 	mutable TArray<bool> EditToolButtonStates;
 
 	/** Edit 工具 Widget（缓存以避免重复创建） */
@@ -54,4 +57,11 @@ private:
 
 	/** Edit 工具按钮网格面板（用于触发刷新） */
 	mutable TSharedPtr<class SUniformGridPanel> EditToolGridPanel;
+
+	/** 当前地图尺寸（宽度和高度） */
+	mutable int32 CurrentMapWidth;
+	mutable int32 CurrentMapHeight;
+
+	/** 是否已加载地图 */
+	mutable bool bMapLoaded;
 };

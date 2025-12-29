@@ -8,6 +8,8 @@ purpose:	VoxelWorldEditor Maps Widget - 地图管理窗口实现
 
 #include "VoxelWorldEditorMapsWidget.h"
 #include "VoxelWorldEditor.h"
+#include "VoxelEditorEditorMode.h"
+#include "VoxelEditorEditorModeToolkit.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SButton.h"
@@ -24,6 +26,11 @@ purpose:	VoxelWorldEditor Maps Widget - 地图管理窗口实现
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/PlatformFile.h"
+#include "EditorModeManager.h"
+#include "Editor.h"
+#include "EditorModeTools.h"
+#include "LevelEditor.h"
+#include "LevelEditorActions.h"
 
 void SVoxelWorldEditorMapsWidget::Construct(const FArguments& InArgs)
 {
@@ -751,6 +758,40 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 		if (WorldEditor->GetMapManager().LoadMap(UCMapFile))
 		{
 			UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Loaded map: %s"), *MapFile);
+			
+			// 获取当前地图的尺寸
+			UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+			if (MapManager.Curr)
+			{
+				UCSize MapSize = MapManager.Curr->Size;
+				int32 MapWidth = MapSize.cx;
+				int32 MapHeight = MapSize.cy;
+				
+				UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Map size: %dx%d"), MapWidth, MapHeight);
+				
+				// 更新Edit分页的UI
+				// 通过EditorModeManager获取当前的EditorMode
+				if (GEditor)
+				{
+					FEditorModeTools* ModeTools = GEditor->GetEditorSubsystem<UEditorModeManager>()->GetEditorModeTools();
+					if (ModeTools)
+					{
+						FEdMode* CurrentMode = ModeTools->GetActiveMode(UVoxelEditorEditorMode::EM_VoxelEditorEditorModeId);
+						if (CurrentMode)
+						{
+							UEdMode* EdMode = CurrentMode->GetModeObject();
+							if (UVoxelEditorEditorMode* VoxelMode = Cast<UVoxelEditorEditorMode>(EdMode))
+							{
+								TSharedPtr<FVoxelEditorEditorModeToolkit> Toolkit = VoxelMode->GetToolkit();
+								if (Toolkit.IsValid())
+								{
+									Toolkit->UpdateEditToolGridFromMap(MapWidth, MapHeight);
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 		else
 		{
