@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\KartGame.uproject" />
+    <Filter Include="Source">
+      <UniqueIdentifier>{F31BBDD1-B3E8-3BCC-9652-680E16935819}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\KartGame.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\Source\KartGameEditor.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\.vsconfig" />
+    <None Include="..\..\KartGame.code-workspace" />
+    <None Include="..\..\UpgradeLog.htm" />
+    <Filter Include="Config">
+      <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Config\DefaultEditor.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEditorPerProjectUserSettings.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEngine.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultGame.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultInput.ini">
+      <Filter>Config</Filter>
+    </None>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{ECEE0A84-AF1B-3E31-98AE-C4CE303FAD9D}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Shaders\UIRectPixelShader.usf">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\..\Shaders\UIRectVertexShader.usf">
+      <Filter>Shaders</Filter>
+    </None>
+    <Filter Include="Plugins">
+      <UniqueIdentifier>{BB38096A-B391-30DC-A0D4-4F3EA6B44507}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\MagicXCore">
+      <UniqueIdentifier>{9A0C84D4-58EF-34B0-AF5E-4CD3DD155B39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\MagicXCore\Source">
+      <UniqueIdentifier>{AC578F35-FE4A-3E70-BEA0-54D822E30492}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore">
+      <UniqueIdentifier>{DCA4C675-24C3-3F1A-B783-5CD1FF2C440C}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\MagicXCore\Source\MagicXCore\MagicXCore.Build.cs">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore</Filter>
+    </None>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\Private">
+      <UniqueIdentifier>{A251BD31-79F4-3926-A6C6-4899E174B82B}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\MagicXCore.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\UCUnrealUIRectPixelShader.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\UCUnrealUIRectVertexShader.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunrealwnd.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\UnrealGlobalOverlay.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private</Filter>
+    </ClCompile>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\Private\objects">
+      <UniqueIdentifier>{2E555926-1929-38C0-A040-B3FEDE27C8D5}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\objects\ScriptDelegateBridge.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\objects\UnrealBaseExport.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\objects\UnrealEnvironmentExport.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\objects\UnrealUIExport.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\objects</Filter>
+    </ClCompile>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d">
+      <UniqueIdentifier>{99C2FEE3-3E1F-38B3-BE78-06F7E813DBB3}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d\ucunreal3dcommandbuffer.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d\ucunreal3ddevice.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d\ucunreal3dplanefont.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d\ucunreal3dstagingbuffer.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d\ucunreal3dtexture.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d\ucunreal3dvertexbuffer.cpp">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Private\ucunreal3d</Filter>
+    </ClCompile>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\Public">
+      <UniqueIdentifier>{5176BE7E-2D58-39C7-90CD-AA65EE209C9E}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\MagicXCore.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\UCUnrealUIRectPixelShader.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\UCUnrealUIRectVertexShader.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunrealwnd.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\UnrealGlobalOverlay.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public</Filter>
+    </ClInclude>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\Public\objects">
+      <UniqueIdentifier>{30450D4B-D797-3FB0-8E6D-0587F00AC026}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\objects\ScriptDelegateBridge.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\objects\UnrealBaseExport.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\objects\UnrealEnvironmentExport.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\objects\UnrealUIExport.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\objects</Filter>
+    </ClInclude>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d">
+      <UniqueIdentifier>{D2973B08-F146-3CCB-9308-DCFA3E1DC8B9}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\basetype.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3d.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3dcommandbuffer.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3ddevice.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3dplanefont.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3dstagingbuffer.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3dtexture.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d\ucunreal3dvertexbuffer.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\Public\ucunreal3d</Filter>
+    </ClInclude>
+    <None Include="..\..\Plugins\MagicXCore\MagicXCore.uplugin">
+      <Filter>Plugins\MagicXCore</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelCore">
+      <UniqueIdentifier>{15769D91-B5F6-3AF8-B9DE-332F0073926D}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\VoxelCore\VoxelCore.uplugin">
+      <Filter>Plugins\VoxelCore</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelCore\Resources">
+      <UniqueIdentifier>{C102EED4-3679-3034-A025-DEEB2807137C}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\VoxelCore\Resources\Icon128.png">
+      <Filter>Plugins\VoxelCore\Resources</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelEditor">
+      <UniqueIdentifier>{5EE04E18-84FF-3225-90A9-A7ECD5A6B70F}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\VoxelEditor\VoxelEditor.uplugin">
+      <Filter>Plugins\VoxelEditor</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelEditor\Resources">
+      <UniqueIdentifier>{DA02AA6A-6226-3C77-99CE-E81ECF5B9730}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\VoxelEditor\Resources\Icon128.png">
+      <Filter>Plugins\VoxelEditor\Resources</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelCore\Source">
+      <UniqueIdentifier>{C338312B-9FB4-3331-B035-024FCA32E6B7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\VoxelCore\Source\VoxelCore">
+      <UniqueIdentifier>{30C31095-F855-3760-BFFC-1406DF97B718}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\VoxelCore\Source\VoxelCore\VoxelCore.Build.cs">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelCore\Source\VoxelCore\Private">
+      <UniqueIdentifier>{1CDA966F-CC73-38D1-8625-C051D7622417}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelCore.cpp">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelData.cpp">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelTerrain.cpp">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
+    </ClCompile>
+    <Filter Include="Plugins\VoxelCore\Source\VoxelCore\Public">
+      <UniqueIdentifier>{20C64C60-D3B8-3FA4-807D-D86F3EF6D8D7}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelCore.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelData.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelTerrain.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <Filter Include="Plugins\VoxelEditor\Source">
+      <UniqueIdentifier>{0C68242E-3E80-38E4-9D0F-3CD9C58A9B1E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\VoxelEditor\Source\VoxelEditor">
+      <UniqueIdentifier>{8579BA78-34DD-3D04-AE4E-47663841ED82}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\VoxelEditor.Build.cs">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor</Filter>
+    </None>
+    <Filter Include="Plugins\VoxelEditor\Source\VoxelEditor\Private">
+      <UniqueIdentifier>{21C41E5B-5AFF-3323-8DF0-7ED8D2778005}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelEditorEditorMode.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelEditorEditorModeCommands.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelEditorEditorModeToolkit.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelEditorModule.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
+    </ClCompile>
+    <Filter Include="Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools">
+      <UniqueIdentifier>{4ECF01D0-CE66-3954-99E8-1BC48787DC45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\VoxelEditor\Source\VoxelEditor\Public">
+      <UniqueIdentifier>{41513BC9-7DFA-3167-B24C-28AAA31FAD8E}</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Public\VoxelEditorEditorMode.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Public\VoxelEditorEditorModeCommands.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Public\VoxelEditorEditorModeToolkit.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Public\VoxelEditorModule.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
+    </ClInclude>
+    <Filter Include="Source\KartGame">
+      <UniqueIdentifier>{16FEC34D-1454-3718-8DE4-0B2CAA7F02F4}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\KartGame\KartGame.Build.cs">
+      <Filter>Source\KartGame</Filter>
+    </None>
+    <ClCompile Include="..\..\Source\KartGame\KartGame.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGame.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameGameInstance.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameGameInstance.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameGameMode.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameGameMode.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameKartPawn.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameKartPawn.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameLoginController.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameLoginController.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGamePawn.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGamePawn.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGamePlayerController.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGamePlayerController.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameUI.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameUI.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameWheelFront.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameWheelFront.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\KartGameWheelRear.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartGameWheelRear.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\UCUnrealUIRectPixelShader.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\UCUnrealUIRectPixelShader.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\KartGame\UCUnrealUIRectVertexShader.cpp">
+      <Filter>Source\KartGame</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\UCUnrealUIRectVertexShader.h">
+      <Filter>Source\KartGame</Filter>
+    </ClInclude>
+    <Filter Include="Source\KartGame\KartCar">
+      <UniqueIdentifier>{684623D5-2BB2-3937-9273-A161C51343BC}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\KartGame\KartCar\KartGameKartCar.cpp">
+      <Filter>Source\KartGame\KartCar</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\KartGame\KartCar\KartGameKartCar.h">
+      <Filter>Source\KartGame\KartCar</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Plugins\MagicXCore\Source\MagicXCore\include">
+      <UniqueIdentifier>{64f0f9a1-2801-4060-9859-c32a04586bfe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\KartGame\VoxelWorld">
+      <UniqueIdentifier>{5c95a112-7f29-4e2c-9a4e-e906f186245d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\uc3d.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\uccompile.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucdevice.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucgamebase.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucgeometry.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucgl3d.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucnetbase.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucore.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucscript.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucsharp.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucui.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\magicx\engine\code\sdk\winexe\include\ucwin32base.h">
+      <Filter>Plugins\MagicXCore\Source\MagicXCore\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelWorldBase.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Public\VoxelWorldEditor.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\KartGame\VoxelWorld\VoxelWorldGame.h">
+      <Filter>Source\KartGame\VoxelWorld</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorEditTool.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelWorldBase.cpp">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelWorldEditor.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\KartGame\VoxelWorld\VoxelWorldGame.cpp">
+      <Filter>Source\KartGame\VoxelWorld</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorEditTool.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
