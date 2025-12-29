@@ -22,6 +22,8 @@ purpose:	VoxelWorldEditor Maps Widget - 地图管理窗口实现
 #include "Widgets/SWindow.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFile.h"
 
 void SVoxelWorldEditorMapsWidget::Construct(const FArguments& InArgs)
 {
@@ -74,6 +76,7 @@ void SVoxelWorldEditorMapsWidget::Construct(const FArguments& InArgs)
 				.OnGetChildren(this, &SVoxelWorldEditorMapsWidget::OnGetChildren)
 				.OnSelectionChanged(this, &SVoxelWorldEditorMapsWidget::OnMapSelectionChanged)
 				.OnMouseButtonDoubleClick(this, &SVoxelWorldEditorMapsWidget::OnMapDoubleClicked)
+				.OnExpansionChanged(this, &SVoxelWorldEditorMapsWidget::OnExpansionChanged)
 			]
 		]
 	];
@@ -172,6 +175,17 @@ TSharedPtr<FVoxelMapTreeNode> SVoxelWorldEditorMapsWidget::FindTreeNodeByNodeDat
 
 void SVoxelWorldEditorMapsWidget::RefreshMapList()
 {
+	// 保存当前选中节点的 NodeData 指针（如果存在）
+	UCVoxelMapNodeData* SelectedNodeData = nullptr;
+	if (SelectedNode.IsValid() && SelectedNode->NodeData)
+	{
+		SelectedNodeData = SelectedNode->NodeData;
+	}
+
+	// 保存已展开的节点集合（ExpandedNodeDataSet 已经在 OnExpansionChanged 中维护）
+	// 这里不需要额外收集，因为 ExpandedNodeDataSet 已经是当前状态
+
+	// 清空列表并重建树结构
 	MapListItems.Empty();
 	RootNode.Reset();
 
@@ -192,15 +206,85 @@ void SVoxelWorldEditorMapsWidget::RefreshMapList()
 		}
 	}
 
+	// 刷新树形视图
 	MapTreeView->RequestTreeRefresh();
 	
-	// 如果 RootNode 有效且之前没有选中，则默认选中 Root
-	// 只在初始构建时执行，避免在刷新后立即设置选择导致访问违例
-	if (RootNode.IsValid() && MapTreeView.IsValid() && !SelectedNode.IsValid())
+	// 恢复展开状态
+	if (RootNode.IsValid() && MapTreeView.IsValid())
 	{
-		MapTreeView->SetItemExpansion(RootNode, true);
-		MapTreeView->SetSelection(RootNode);
-		SelectedNode = RootNode;
+		// 判断是否是首次构建（通过 SelectedNodeData 是否为 nullptr，且 ExpandedNodeDataSet 为空）
+		bool bIsFirstBuild = (SelectedNodeData == nullptr && ExpandedNodeDataSet.Num() == 0);
+
+		// 恢复 Root 节点的展开状态
+		bool bShouldExpandRoot = false;
+		if (bIsFirstBuild)
+		{
+			// 首次构建，默认展开 Root 并添加到展开集合
+			bShouldExpandRoot = true;
+			if (RootNode->NodeData)
+			{
+				ExpandedNodeDataSet.Add(RootNode->NodeData);
+			}
+		}
+		else
+		{
+			// 非首次构建，根据保存的展开状态决定
+			bShouldExpandRoot = (RootNode->NodeData && ExpandedNodeDataSet.Contains(RootNode->NodeData));
+		}
+
+		if (bShouldExpandRoot)
+		{
+			MapTreeView->SetItemExpansion(RootNode, true);
+		}
+
+		// 递归恢复所有已展开节点的展开状态
+		TFunction<void(TSharedPtr<FVoxelMapTreeNode>)> RestoreExpansion = [&](TSharedPtr<FVoxelMapTreeNode> TreeNode)
+		{
+			if (!TreeNode.IsValid())
+			{
+				return;
+			}
+
+			// 如果这个节点的 NodeData 在展开集合中，则展开它
+			if (TreeNode->NodeData && ExpandedNodeDataSet.Contains(TreeNode->NodeData))
+			{
+				MapTreeView->SetItemExpansion(TreeNode, true);
+			}
+
+			// 递归处理子节点
+			for (auto& Child : TreeNode->Children)
+			{
+				RestoreExpansion(Child);
+			}
+		};
+
+		if (RootNode.IsValid())
+		{
+			RestoreExpansion(RootNode);
+		}
+
+		// 恢复选中状态
+		if (SelectedNodeData)
+		{
+			TSharedPtr<FVoxelMapTreeNode> FoundNode = FindTreeNodeByNodeData(RootNode, SelectedNodeData);
+			if (FoundNode.IsValid())
+			{
+				MapTreeView->SetSelection(FoundNode);
+				SelectedNode = FoundNode;
+			}
+			else
+			{
+				// 如果找不到之前的选中节点，默认选中 Root
+				MapTreeView->SetSelection(RootNode);
+				SelectedNode = RootNode;
+			}
+		}
+		else
+		{
+			// 首次构建，默认选中 Root
+			MapTreeView->SetSelection(RootNode);
+			SelectedNode = RootNode;
+		}
 	}
 }
 
@@ -447,6 +531,41 @@ FReply SVoxelWorldEditorMapsWidget::OnCreateMapClicked()
 								UCString UCMapFile = UCString(*MapFile);
 								WorldEditor->GetMapManager().SaveToFile(UCMapFile);
 
+								// 如果是地图（不是文件夹），需要保存地图文件
+								if (!bIsFolder)
+								{
+									WorldEditor->GetMapManager().NewCurrentMap(UCSize(MapWidth, MapHeight));
+									
+									// 获取父节点的路径（GetNodePath返回的是从Root到父节点的父节点的路径）
+									FString NodePath = GetNodePath(SelectedNode);
+									FString MapDir = MapsDir;
+									
+									// 构建完整路径：如果SelectedNode不是Root，需要加上SelectedNode的名称
+									if (!SelectedNode->bIsRoot)
+									{
+										if (!NodePath.IsEmpty())
+										{
+											MapDir = MapsDir / NodePath / SelectedNode->DisplayName;
+										}
+										else
+										{
+											MapDir = MapsDir / SelectedNode->DisplayName;
+										}
+									}
+									// 如果SelectedNode是Root，MapDir保持为MapsDir
+									
+									// 构建地图文件路径：{MapDir}/{MapName}.mjson
+									FString MapFilePath = MapDir / (MapName + TEXT(".mjson"));
+									
+									// 递归创建目录
+									IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+									PlatformFile.CreateDirectoryTree(*MapDir);
+									
+									// 保存地图文件
+									UCString UCMapFilePath = UCString(*MapFilePath);
+									WorldEditor->GetMapManager().SaveMap(UCMapFilePath);
+								}
+
 								// 刷新列表（不要在这里设置选择，避免访问违例）
 								RefreshMapList();
 							}
@@ -639,17 +758,6 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 				NSLOCTEXT("VoxelEditor", "LoadMapError", "加载地图失败！"));
 		}
 	}
-	else
-	{
-		// 文件不存在，创建目录并保存新地图
-		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		PlatformFile.CreateDirectoryTree(*MapsDir);
-		
-		UCString UCMapFile = UCString(*MapFile);
-		WorldEditor->GetMapManager().SaveMap(UCMapFile);
-		
-		UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Created new map file: %s"), *MapFile);
-	}
 }
 
 FString SVoxelWorldEditorMapsWidget::GetNodePath(TSharedPtr<FVoxelMapTreeNode> Node)
@@ -716,5 +824,27 @@ FString SVoxelWorldEditorMapsWidget::GetNodePath(TSharedPtr<FVoxelMapTreeNode> N
 	}
 	
 	return Result;
+}
+
+void SVoxelWorldEditorMapsWidget::OnExpansionChanged(TSharedPtr<FVoxelMapTreeNode> Item, bool bExpanded)
+{
+	if (!Item.IsValid())
+	{
+		return;
+	}
+
+	// 对于 Root 节点，使用一个特殊的标记（因为 Root 节点的 NodeData 可能为 nullptr）
+	// 实际上，Root 节点也有 NodeData，它指向 MapManager.Root
+	if (Item->NodeData)
+	{
+		if (bExpanded)
+		{
+			ExpandedNodeDataSet.Add(Item->NodeData);
+		}
+		else
+		{
+			ExpandedNodeDataSet.Remove(Item->NodeData);
+		}
+	}
 }
 

@@ -81,6 +81,12 @@ private:
 
 	/** 当前选中的节点 */
 	TSharedPtr<FVoxelMapTreeNode> SelectedNode;
+
+	/** 已展开的节点集合（使用 NodeData 指针作为标识） */
+	TSet<UCVoxelMapNodeData*> ExpandedNodeDataSet;
+
+	/** 节点展开/折叠状态改变的回调 */
+	void OnExpansionChanged(TSharedPtr<FVoxelMapTreeNode> Item, bool bExpanded);
 };
 
 

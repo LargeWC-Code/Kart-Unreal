@@ -55,6 +55,8 @@ public:
 	ucBOOL	LoadFromFile(ucCONST UCString& Filename);
 	ucVOID	SaveToFile(ucCONST UCString& Filename);
 
+	ucVOID	NewCurrentMap(UCSize Size);
+
 	ucBOOL	LoadMap(ucCONST UCString& Filename);
 	ucVOID	SaveMap(ucCONST UCString& Filename);
 };

@@ -83,6 +83,14 @@ ucVOID	UCVoxelMapManager::SaveToFile(ucCONST UCString& Filename)
 	Formatter.Save(&File, &Root, &UCE_UCVoxelMapNodeData::I);
 }
 
+ucVOID	UCVoxelMapManager::NewCurrentMap(UCSize Size)
+{
+	SF_DELETE(Curr);
+	Curr = new UCVoxelMapData;
+
+	Curr->Size = Size;
+}
+
 ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
 {
 	SF_DELETE(Curr);
