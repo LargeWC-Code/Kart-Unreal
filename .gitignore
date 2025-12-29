@@ -1,16 +1,56 @@
-/Intermediate/Build
-/.vs
-/Binaries
-/Intermediate/ProjectFiles/*.user
-/Plugins/MagicXCore/Binaries
-/Plugins/MagicXCore/Intermediate
-/Plugins/VoxelCore/Intermediate
-/Plugins/VoxelCore/Binaries
-/Plugins/VoxelEditor/Intermediate
-/Plugins/VoxelEditor/Binaries
-/Saved
+# Unreal Engine 生成的中间文件和缓存
+Intermediate/
+Saved/
+DerivedDataCache/
+Binaries/
+Build/
 
-/DerivedDataCache
-/Intermediate
-/Intermediate
-/UpgradeLog.htm
+# Visual Studio 用户特定文件
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sdf
+*.opensdf
+*.db
+*.opendb
+*.suo.user
+*.suo.user.*
+
+# Visual Studio 项目文件（可选，如果团队需要可以提交）
+# *.vcxproj
+# *.vcxproj.filters
+# *.vcxproj.user
+
+# Rider 用户特定文件
+.idea/
+
+# Xcode 用户特定文件
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+
+# 备份文件
+Backup/
+*.bak
+*.tmp
+
+# 日志文件
+*.log
+
+# 自动保存的文件（可选，根据需要决定是否忽略）
+# Saved/Autosaves/
+
+# 崩溃报告
+Saved/Crashes/
+
+# 屏幕截图
+Saved/Screenshots/
+
+# 工作区文件（VS Code/Cursor 特定）
+*.code-workspace
+
+# 升级日志
+UpgradeLog.htm
+
+/.vs
