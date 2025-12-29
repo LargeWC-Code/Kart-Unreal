@@ -420,6 +420,9 @@
     <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.h">
       <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelWorldEditorMapsWidget.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelWorldBase.cpp">
@@ -436,6 +439,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.cpp">
       <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelWorldEditorMapsWidget.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -534,9 +534,11 @@
   <ItemGroup>
     <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorEditTool.cpp" />
     <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.cpp" />
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelWorldEditorMapsWidget.cpp" />
     <ClCompile Include="..\..\Source\KartGame\VoxelWorld\VoxelWorldGame.cpp" />
     <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorEditTool.h" />
     <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.h" />
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelWorldEditorMapsWidget.h" />
     <ClInclude Include="..\..\Source\KartGame\VoxelWorld\VoxelWorldGame.h" />
     <None Include="..\..\KartGame.uproject" />
     <None Include="..\..\Source\KartGame.Target.cs" />

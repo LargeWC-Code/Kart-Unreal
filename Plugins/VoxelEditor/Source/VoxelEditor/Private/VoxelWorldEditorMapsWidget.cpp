@@ -443,12 +443,9 @@ FReply SVoxelWorldEditorMapsWidget::OnCreateMapClicked()
 								
 								// 保存到文件
 								FString MapsDir = FPaths::ProjectContentDir() / TEXT("VoxelWorld/World");
-								FString MapFile = MapsDir / TEXT("AllMaps.json.mx");
+								FString MapFile = MapsDir / TEXT("AllMaps.wjson");
 								UCString UCMapFile = UCString(*MapFile);
 								WorldEditor->GetMapManager().SaveToFile(UCMapFile);
-
-								UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Created new node: %s (Type: %s)"),
-									*MapName, bIsFolder ? TEXT("Folder") : TEXT("Map"));
 
 								// 刷新列表（不要在这里设置选择，避免访问违例）
 								RefreshMapList();
