@@ -57,7 +57,8 @@ void AVoxelWorldEditor::ShowMapsWindow()
 
 	// 创建内容
 	TSharedRef<SVoxelWorldEditorMapsWidget> MapsWidget = SNew(SVoxelWorldEditorMapsWidget)
-		.VoxelWorldEditor(this);
+		.VoxelWorldEditor(this)
+		.ParentWindow(Window);
 
 	Window->SetContent(MapsWidget);
 

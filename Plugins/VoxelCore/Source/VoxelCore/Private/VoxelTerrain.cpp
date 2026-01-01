@@ -3,339 +3,596 @@ created:	2024/12/XX
 filename: 	VoxelTerrain.cpp
 author:		Auto Generated
 
-purpose:	VoxelTerrain 实现
+purpose:	VoxelTerrain 实现 - 管理地块的类
 *********************************************************************/
 #include "VoxelTerrain.h"
+#include "VoxelTile.h"
+#include "VoxelMap.h"
+#include "Engine/World.h"
 #include "Materials/MaterialInterface.h"
-#include "Engine/Engine.h"
+#include "Misc/Guid.h"
+#include "UObject/NameTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Plane.h"
 
-// 六个面的方向向量（Unreal坐标系统：X=Forward, Y=Right, Z=Up）
-const FIntVector AVoxelTerrain::FaceDirections[6] = {
-	FIntVector( 0, -1,  0), // Left (面向-Y方向)
-	FIntVector( 1,  0,  0), // Front (面向+X方向)
-	FIntVector( 0,  1,  0), // Right (面向+Y方向)
-	FIntVector(-1,  0,  0), // Back (面向-X方向)
-	FIntVector( 0,  0,  1), // Top (面向+Z方向)
-	FIntVector( 0,  0, -1)  // Bottom (面向-Z方向)
-};
-
-// 六个面的法向量
-const FVector AVoxelTerrain::FaceNormals[6] = {
-	FVector( 0, -1,  0), // Left
-	FVector( 1,  0,  0), // Front
-	FVector( 0,  1,  0), // Right
-	FVector(-1,  0,  0), // Back
-	FVector( 0,  0,  1), // Top
-	FVector( 0,  0, -1)  // Bottom
-};
-
-// 六个面的顶点位置（相对于体素原点，单位立方体）
-// Unreal坐标系统：X=Forward, Y=Right, Z=Up
-const FVector AVoxelTerrain::FaceVertices[6][4] = {
-	// Left face (Y=0，面向-Y方向)
-	{
-		FVector(0, 0, 0), // 左下
-		FVector(1, 0, 0), // 右下
-		FVector(1, 0, 1), // 右上
-		FVector(0, 0, 1)  // 左上
-	},
-	// Front face (X=1，面向+X方向)
-	{
-		FVector(1, 0, 0), // 左下
-		FVector(1, 1, 0), // 右下
-		FVector(1, 1, 1), // 右上
-		FVector(1, 0, 1)  // 左上
-	},
-	// Right face (Y=1，面向+Y方向)
-	{
-		FVector(1, 1, 0), // 左下
-		FVector(0, 1, 0), // 右下
-		FVector(0, 1, 1), // 右上
-		FVector(1, 1, 1)  // 左上
-	},
-	// Back face (X=0，面向-X方向)
-	{
-		FVector(0, 1, 0), // 左下
-		FVector(0, 0, 0), // 右下
-		FVector(0, 0, 1), // 右上
-		FVector(0, 1, 1)  // 左上
-	},
-	// Top face (Z=1，面向+Z方向)
-	{
-		FVector(0, 0, 1), // 左下
-		FVector(1, 0, 1), // 右下
-		FVector(1, 1, 1), // 右上
-		FVector(0, 1, 1)  // 左上
-	},
-	// Bottom face (Z=0，面向-Z方向)
-	{
-		FVector(0, 1, 0), // 左下
-		FVector(1, 1, 0), // 右下
-		FVector(1, 0, 0), // 右上
-		FVector(0, 0, 0)  // 左上
-	}
-};
-
-AVoxelTerrain::AVoxelTerrain(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-	, TerrainSize(32, 32, 32)
-	, VoxelSize(100.0f)
+UVoxelTerrain::UVoxelTerrain()
+	: VoxelSize(100.0f)
 	, Material(nullptr)
-	, bNeedsMeshUpdate(false)
 {
-	PrimaryActorTick.bCanEverTick = true;
+}
 
-	// 创建程序化网格组件
-	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("ProceduralMesh"));
-	RootComponent = ProceduralMesh;
+AVoxelTile* UVoxelTerrain::GetTile(int32 TileX, int32 TileY, UWorld* World, bool AutoCreate)
+{
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	FIntPoint TileKey = GetTileKey(TileX, TileY);
 	
-	// 设置碰撞
-	ProceduralMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-}
+	// 检查是否已存在
+	if (TileMap.Contains(TileKey))
+	{
+		AVoxelTile* ExistingTile = TileMap[TileKey];
+		if (IsValid(ExistingTile))
+			return ExistingTile;
+		// 如果已失效，移除
+		TileMap.Remove(TileKey);
+	}
 
-void AVoxelTerrain::BeginPlay()
-{
-	Super::BeginPlay();
+	if (!AutoCreate)
+		return nullptr;
+
+	// 创建新地块
+	FActorSpawnParameters SpawnParams;
+	// Name 使用 GUID 确保唯一性
+	FGuid UniqueID = FGuid::NewGuid();
+	FString UniqueName = FString::Printf(TEXT("VoxelTile_%s"), *UniqueID.ToString(EGuidFormats::Short));
+	SpawnParams.Name = FName(*UniqueName);
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	
-	InitializeTerrain();
-	UpdateMesh();
-}
-
-void AVoxelTerrain::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	if (bNeedsMeshUpdate)
+	AVoxelTile* NewTile = World->SpawnActor<AVoxelTile>(SpawnParams);
+	if (NewTile)
 	{
-		UpdateMesh();
-		bNeedsMeshUpdate = false;
-	}
-}
-
-void AVoxelTerrain::InitializeTerrain()
-{
-	int32 TotalVoxels = TerrainSize.X * TerrainSize.Y * TerrainSize.Z;
-	VoxelData.SetNum(TotalVoxels);
-	
-	// 初始化为空
-	for (int32 i = 0; i < TotalVoxels; ++i)
-	{
-		VoxelData[i] = FVoxelData(0, 0);
-	}
-}
-
-bool AVoxelTerrain::IsValidVoxelCoord(int32 X, int32 Y, int32 Z) const
-{
-	return X >= 0 && X < TerrainSize.X &&
-		   Y >= 0 && Y < TerrainSize.Y &&
-		   Z >= 0 && Z < TerrainSize.Z;
-}
-
-int32 AVoxelTerrain::VoxelCoordToIndex(int32 X, int32 Y, int32 Z) const
-{
-	return Z * TerrainSize.Y * TerrainSize.X + Y * TerrainSize.X + X;
-}
-
-FIntVector AVoxelTerrain::IndexToVoxelCoord(int32 Index) const
-{
-	FIntVector Coord;
-	Coord.X = Index % TerrainSize.X;
-	Coord.Y = (Index / TerrainSize.X) % TerrainSize.Y;
-	Coord.Z = Index / (TerrainSize.X * TerrainSize.Y);
-	return Coord;
-}
-
-bool AVoxelTerrain::IsVoxelEmpty(int32 X, int32 Y, int32 Z) const
-{
-	if (!IsValidVoxelCoord(X, Y, Z))
-		return true; // 边界外视为空
-	
-	int32 Index = VoxelCoordToIndex(X, Y, Z);
-	return VoxelData[Index].IsEmpty();
-}
-
-void AVoxelTerrain::SetVoxel(int32 X, int32 Y, int32 Z, uint8 Type, uint8 Layer, bool bUpdateMesh)
-{
-	if (!IsValidVoxelCoord(X, Y, Z))
-		return;
-
-	int32 Index = VoxelCoordToIndex(X, Y, Z);
-	VoxelData[Index] = FVoxelData(Type, Layer);
-
-	if (bUpdateMesh)
-	{
-		bNeedsMeshUpdate = true;
-	}
-}
-
-FVoxelData AVoxelTerrain::GetVoxel(int32 X, int32 Y, int32 Z) const
-{
-	if (!IsValidVoxelCoord(X, Y, Z))
-		return FVoxelData(0, 0);
-
-	int32 Index = VoxelCoordToIndex(X, Y, Z);
-	return VoxelData[Index];
-}
-
-void AVoxelTerrain::FillRegion(const FIntVector& MinPos, const FIntVector& MaxPos, uint8 Type, uint8 Layer, bool bUpdateMesh)
-{
-	for (int32 X = MinPos.X; X <= MaxPos.X; ++X)
-	{
-		for (int32 Y = MinPos.Y; Y <= MaxPos.Y; ++Y)
-		{
-			for (int32 Z = MinPos.Z; Z <= MaxPos.Z; ++Z)
-			{
-				SetVoxel(X, Y, Z, Type, Layer, false);
-			}
-		}
-	}
-
-	if (bUpdateMesh)
-	{
-		bNeedsMeshUpdate = true;
-	}
-}
-
-void AVoxelTerrain::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const FVoxelData& Voxel)
-{
-	if (FaceIndex < 0 || FaceIndex >= 6)
-		return;
-
-	// 计算体素在世界空间中的位置（Unreal中Z向上）
-	FVector BasePos = FVector(X * VoxelSize, Y * VoxelSize, Z * VoxelSize);
-
-	// 获取当前面的法向量
-	FVector Normal = FaceNormals[FaceIndex];
-
-	// 获取当前面的四个顶点
-	const FVector* FaceVerts = FaceVertices[FaceIndex];
-
-	// 计算当前面的基础索引（用于三角形索引）
-	int32 BaseIndex = Vertices.Num();
-
-	// 添加四个顶点
-	for (int32 i = 0; i < 4; ++i)
-	{
-		FVector VertexOffset = FaceVerts[i] * VoxelSize;
-		FVector VertexPos = BasePos + VertexOffset;
-		Vertices.Add(VertexPos);
-		Normals.Add(Normal);
+		NewTile->TileCoord = FIntPoint(TileX, TileY);
+		NewTile->VoxelSize = VoxelSize;
+		NewTile->Material = Material;
 		
-		// UV坐标（简单的平铺，可以根据体素类型调整）
-		// 将局部坐标转换为UV（0-1范围）
-		FVector2D UV;
-		if (FaceIndex < 4) // 侧面
-		{
-			// 侧面：根据面类型使用不同的坐标轴
-			if (FaceIndex == 0 || FaceIndex == 2) // Left/Right面：使用X和Z
-			{
-				UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Z / VoxelSize);
-			}
-			else // Front/Back面：使用Y和Z
-			{
-				UV = FVector2D(VertexOffset.Y / VoxelSize, VertexOffset.Z / VoxelSize);
-			}
-		}
-		else // Top/Bottom面：使用X和Y
-		{
-			UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Y / VoxelSize);
-		}
-		UVs.Add(UV);
-
-		// 顶点颜色（可以根据体素类型设置不同颜色）
-		FColor Color = FColor::White;
-		if (Voxel.Type > 0)
-		{
-			// 根据类型设置颜色（简单的示例）
-			uint8 Gray = FMath::Clamp(Voxel.Type * 255 / 255, (uint8)64, (uint8)255);
-			Color = FColor(Gray, Gray, Gray, 255);
-		}
-		VertexColors.Add(Color);
-
-		// 切线（简化为零）
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
+		// 设置地块位置
+		FVector WorldPos = GetTileWorldPosition(TileX, TileY);
+		NewTile->SetActorLocation(WorldPos);
+		
+		// 设置文件夹路径：VoxelWorld/VoxelTiles
+		NewTile->SetFolderPath(FName(TEXT("VoxelWorld/VoxelTiles")));
+		
+		// 设置 Label（显示名称）：格式为 (0,0) 或 (-1,-1)
+		FString TileLabel = FString::Printf(TEXT("Tile(%d,%d)"), TileX, TileY);
+		NewTile->SetActorLabel(TileLabel);
+		
+		// 默认不激活
+		NewTile->SetActive(false);
+		
+		TileMap.Add(TileKey, NewTile);
 	}
 
-	// 添加两个三角形（0-1-2 和 0-2-3）
-	Triangles.Add(BaseIndex + 0);
-	Triangles.Add(BaseIndex + 1);
-	Triangles.Add(BaseIndex + 2);
-
-	Triangles.Add(BaseIndex + 0);
-	Triangles.Add(BaseIndex + 2);
-	Triangles.Add(BaseIndex + 3);
+	return NewTile;
 }
 
-void AVoxelTerrain::BuildMeshData()
+void UVoxelTerrain::SetTileActive(int32 TileX, int32 TileY, UWorld* World, bool bActive)
 {
-	// 清空之前的网格数据
-	Vertices.Empty();
-	Triangles.Empty();
-	Normals.Empty();
-	UVs.Empty();
-	VertexColors.Empty();
-	Tangents.Empty();
-
-	// 遍历所有体素，为每个可见面生成几何体
-	for (int32 X = 0; X < TerrainSize.X; ++X)
+	if (!World)
 	{
-		for (int32 Y = 0; Y < TerrainSize.Y; ++Y)
+		UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetTileActive: World is null"));
+		return;
+	}
+
+	FIntPoint TileKey = GetTileKey(TileX, TileY);
+	
+	if (bActive)
+	{
+		// 激活：获取或创建 Tile，然后激活
+		AVoxelTile* Tile = GetTile(TileX, TileY, World, true);
+		if (Tile)
 		{
-			for (int32 Z = 0; Z < TerrainSize.Z; ++Z)
+			Tile->SetActive(true);
+			ActiveTiles.Add(TileKey);
+		}
+	}
+	else
+	{
+		// 取消激活：销毁 Actor
+		AVoxelTile* Tile = GetTile(TileX, TileY, World, false);
+		if (Tile)
+		{
+			// 销毁 Actor
+			World->DestroyActor(Tile);
+			UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTileActive: Destroyed tile at (%d, %d)"), TileX, TileY);
+			
+			// 从映射表中移除
+			TileMap.Remove(TileKey);
+		}
+		
+		// 从激活列表中移除
+		ActiveTiles.Remove(TileKey);
+	}
+}
+
+bool UVoxelTerrain::IsTileActive(int32 TileX, int32 TileY) const
+{
+	FIntPoint TileKey = GetTileKey(TileX, TileY);
+	return ActiveTiles.Contains(TileKey);
+}
+
+void UVoxelTerrain::RemoveTile(int32 TileX, int32 TileY)
+{
+	FIntPoint TileKey = GetTileKey(TileX, TileY);
+	if (TileMap.Contains(TileKey))
+	{
+		AVoxelTile* Tile = TileMap[TileKey];
+		if (IsValid(Tile))
+		{
+			Tile->Destroy();
+		}
+		TileMap.Remove(TileKey);
+		ActiveTiles.Remove(TileKey);
+	}
+}
+
+FVector UVoxelTerrain::GetTileWorldPosition(int32 TileX, int32 TileY) const
+{
+	// 每个地块是32*32*64个单元格，每个单元格100单位（厘米）= 1米
+	// 地块中心位置：Tile (0,0) 的中心在 (0, 0, 0)，覆盖范围从 -16*100 到 +16*100
+	const float TileWorldSize = 32.0f * VoxelSize; // 32个单元格 * 100厘米 = 3200厘米 = 32米
+	
+	float WorldX = TileX * TileWorldSize;
+	float WorldY = TileY * TileWorldSize;
+	float WorldZ = 0.0f; // Z方向也居中，TileSizeZ = 64，中心在32*100，覆盖0到64*100
+	
+	return FVector(WorldX, WorldY, WorldZ);
+}
+
+FIntVector UVoxelTerrain::GetTileWorldGridPosition(int32 TileX, int32 TileY) const
+{
+	// 每个地块是32*32*64个单元格，每个单元格100单位（厘米）= 1米
+	// 地块中心位置：Tile (0,0) 的中心在 (0, 0, 0)，覆盖范围从 -16*100 到 +16*100
+	const float TileWorldSize = 32; // 32个单元格 * 100厘米 = 3200厘米 = 32米
+
+	float WorldX = TileX * TileWorldSize + TileWorldSize / 2;
+	float WorldY = TileY * TileWorldSize + TileWorldSize / 2;
+	float WorldZ = TileWorldSize; // Z方向也居中，TileSizeZ = 64，中心在32*100，覆盖0到64*100
+
+	return FIntVector(WorldX, WorldY, WorldZ);
+}
+
+void UVoxelTerrain::FillRegion(const FVector& Min, const FVector& Max, uint8 VoxelType, uint8 Layer, UWorld* World)
+{
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::FillRegion: World is null"));
+		return;
+	}
+
+	// 计算体素坐标范围
+	// 将世界坐标转换为体素坐标（除以 VoxelSize）
+	int32 MinVoxelX = FMath::FloorToInt(Min.X / VoxelSize);
+	int32 MinVoxelY = FMath::FloorToInt(Min.Y / VoxelSize);
+	int32 MinVoxelZ = FMath::FloorToInt(Min.Z / VoxelSize);
+	
+	int32 MaxVoxelX = FMath::FloorToInt(Max.X / VoxelSize);
+	int32 MaxVoxelY = FMath::FloorToInt(Max.Y / VoxelSize);
+	int32 MaxVoxelZ = FMath::FloorToInt(Max.Z / VoxelSize);
+
+	// 计算涉及的地块范围
+	// 每个地块是 32x32x64 个体素，中心在 (0,0,0)，覆盖范围从 -16 到 +15
+	const int32 TileSizeX = 32;
+	const int32 TileSizeY = 32;
+	const int32 TileSizeZ = 64;
+	const int32 HalfTileSizeX = TileSizeX / 2; // 16
+	const int32 HalfTileSizeY = TileSizeY / 2; // 16
+
+	// 使用向下取整除法处理负数坐标
+	// Tile坐标 = Floor((Voxel坐标 + 16) / 32)，这样Tile(0,0)覆盖-16到+15
+	auto FloorDiv = [](int32 Dividend, int32 Divisor) -> int32 {
+		if (Dividend >= 0)
+			return Dividend / Divisor;
+		else
+			return (Dividend - Divisor + 1) / Divisor; // 向下取整：-1/32 = -1, not 0
+	};
+
+	// 将体素坐标转换为Tile坐标
+	// Tile(0,0)的中心在体素坐标0，覆盖范围-16到+15
+	// 所以：TileX = Floor((VoxelX + 16) / 32)
+	int32 MinTileX = FloorDiv(MinVoxelX + HalfTileSizeX, TileSizeX);
+	int32 MinTileY = FloorDiv(MinVoxelY + HalfTileSizeY, TileSizeY);
+	int32 MaxTileX = FloorDiv(MaxVoxelX + HalfTileSizeX, TileSizeX);
+	int32 MaxTileY = FloorDiv(MaxVoxelY + HalfTileSizeY, TileSizeY);
+
+	// 遍历所有涉及的地块
+	for (int32 TileY = MinTileY; TileY <= MaxTileY; ++TileY)
+	{
+		for (int32 TileX = MinTileX; TileX <= MaxTileX; ++TileX)
+		{
+			// 获取或创建地块
+			AVoxelTile* Tile = GetTile(TileX, TileY, World, true);
+			if (!Tile)
 			{
-				FVoxelData Voxel = GetVoxel(X, Y, Z);
-				if (Voxel.IsEmpty())
-					continue;
+				continue;
+			}
 
-				// 检查六个面，只生成朝向空的面的几何体
-				for (int32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
+			// 获取 Tile 的世界位置
+			FVector TileWorldPos = GetTileWorldPosition(TileX, TileY);
+			
+			// 将世界坐标转换为相对于 Tile 的局部坐标（Tile中心为原点）
+			FVector LocalMin = Min - TileWorldPos;
+			FVector LocalMax = Max - TileWorldPos;
+			
+			// 转换为体素坐标（相对于 Tile 中心，范围从 -16 到 +15）
+			int32 LocalMinVoxelX = FMath::FloorToInt(LocalMin.X / VoxelSize);
+			int32 LocalMinVoxelY = FMath::FloorToInt(LocalMin.Y / VoxelSize);
+			int32 LocalMinVoxelZ = FMath::FloorToInt(LocalMin.Z / VoxelSize);
+			
+			int32 LocalMaxVoxelX = FMath::FloorToInt(LocalMax.X / VoxelSize);
+			int32 LocalMaxVoxelY = FMath::FloorToInt(LocalMax.Y / VoxelSize);
+			int32 LocalMaxVoxelZ = FMath::FloorToInt(LocalMax.Z / VoxelSize);
+			
+			// 限制在地块范围内（Tile中心为原点，范围从 -16 到 +15）
+			const int32 HalfTileSizeZ = TileSizeZ / 2; // 32
+			
+			int32 LocalMinX = FMath::Max(-HalfTileSizeX, LocalMinVoxelX);
+			int32 LocalMinY = FMath::Max(-HalfTileSizeY, LocalMinVoxelY);
+			int32 LocalMinZ = FMath::Max(-HalfTileSizeZ, LocalMinVoxelZ);
+			
+			int32 LocalMaxX = FMath::Min(HalfTileSizeX - 1, LocalMaxVoxelX);
+			int32 LocalMaxY = FMath::Min(HalfTileSizeY - 1, LocalMaxVoxelY);
+			int32 LocalMaxZ = FMath::Min(HalfTileSizeZ - 1, LocalMaxVoxelZ);
+
+			// 填充该地块内的体素
+			// 需要将中心坐标（-16 到 +15）转换为存储坐标（0 到 31）
+			for (int32 LocalZ = LocalMinZ; LocalZ <= LocalMaxZ; ++LocalZ)
+			{
+				for (int32 LocalY = LocalMinY; LocalY <= LocalMaxY; ++LocalY)
 				{
-					FIntVector Direction = FaceDirections[FaceIndex];
-					int32 AdjX = X + Direction.X;
-					int32 AdjY = Y + Direction.Y;
-					int32 AdjZ = Z + Direction.Z;
-
-					// 如果相邻体素为空，则添加这个面
-					if (IsVoxelEmpty(AdjX, AdjY, AdjZ))
+					for (int32 LocalX = LocalMinX; LocalX <= LocalMaxX; ++LocalX)
 					{
-						AddFace(X, Y, Z, FaceIndex, Voxel);
+						// 转换为存储坐标：存储坐标 = 局部坐标 + 16（或 + 32 for Z）
+						int32 StorageX = LocalX + HalfTileSizeX;
+						int32 StorageY = LocalY + HalfTileSizeY;
+						int32 StorageZ = LocalZ + HalfTileSizeZ;
+						
+						Tile->SetVoxel(StorageX, StorageY, StorageZ, VoxelType, Layer, false);
 					}
 				}
 			}
+
+			// 更新网格
+			Tile->UpdateMesh();
 		}
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::FillRegion: Filled region from (%d,%d,%d) to (%d,%d,%d) with type %d"), 
+		MinVoxelX, MinVoxelY, MinVoxelZ, MaxVoxelX, MaxVoxelY, MaxVoxelZ, VoxelType);
 }
 
-void AVoxelTerrain::UpdateMesh()
+bool UVoxelTerrain::SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 VoxelType, uint8 Layer, UWorld* World)
 {
-	// 构建网格数据
-	BuildMeshData();
-
-	// 如果没有顶点，创建空网格
-	if (Vertices.Num() == 0)
+	if (!World)
 	{
-		ProceduralMesh->ClearMeshSection(0);
-		return;
+		UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetVoxelAtWorldPosition: World is null"));
+		return false;
 	}
 
-	// 更新程序化网格组件
-	ProceduralMesh->CreateMeshSection(
-		0,
-		Vertices,
-		Triangles,
-		Normals,
-		UVs,
-		VertexColors,
-		Tangents,
-		true // 启用碰撞
-	);
+	// 将世界坐标转换为体素坐标
+	int32 VoxelX = WorldPosition.X;
+	int32 VoxelY = WorldPosition.Y;
+	int32 VoxelZ = WorldPosition.Z;
 
-	// 设置材质
-	if (Material)
+	// 计算所属的Tile坐标
+	const int32 TileSizeX = 32;
+	const int32 TileSizeY = 32;
+	const int32 TileSizeZ = 64;
+	const int32 HalfTileSizeX = TileSizeX / 2; // 16
+	const int32 HalfTileSizeY = TileSizeY / 2; // 16
+	const int32 HalfTileSizeZ = TileSizeZ / 2; // 16
+
+	auto FloorDiv = [](int32 Dividend, int32 Divisor) -> int32 {
+		if (Dividend >= 0)
+			return Dividend / Divisor;
+		else
+			return (Dividend - Divisor + 1) / Divisor;
+	};
+
+	int32 TileX = FloorDiv(VoxelX, TileSizeX);
+	int32 TileY = FloorDiv(VoxelY, TileSizeY);
+
+	// 获取或创建Tile
+	AVoxelTile* Tile = GetTile(TileX, TileY, World, true);
+	if (!Tile)
 	{
-		ProceduralMesh->SetMaterial(0, Material);
+		UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetVoxelAtWorldPosition: Failed to get or create tile at (%d, %d)"), TileX, TileY);
+		return false;
+	}
+
+	// 获取Tile的世界位置
+	FIntVector TileWorldPos = GetTileWorldGridPosition(TileX, TileY);
+
+	// 将世界坐标转换为相对于Tile的局部坐标（Tile中心为原点）
+	FIntVector LocalPos = WorldPosition - TileWorldPos;
+
+// 	// 限制在地块范围内
+// 	const int32 TileSizeZ = 64;
+// 	const int32 HalfTileSizeZ = TileSizeZ / 2; // 32
+// 
+// 	if (LocalVoxelX < -HalfTileSizeX || LocalPos.X >= HalfTileSizeX ||
+// 		LocalVoxelY < -HalfTileSizeY || LocalPos.Y >= HalfTileSizeY ||
+// 		LocalVoxelZ < -HalfTileSizeZ || LocalPos.Z >= HalfTileSizeZ)
+// 	{
+// 		UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetVoxelAtWorldPosition: Voxel position (%d,%d,%d) is out of tile bounds"), 
+// 			LocalVoxelX, LocalVoxelY, LocalVoxelZ);
+// 		return false;
+// 	}
+
+	// 转换为存储坐标（0到31 for X/Y, 0到63 for Z）
+	int32 StorageX = LocalPos.X + HalfTileSizeX;
+	int32 StorageY = LocalPos.Y + HalfTileSizeY;
+	int32 StorageZ = LocalPos.Z + HalfTileSizeZ;
+
+	// 设置体素
+	Tile->SetVoxel(StorageX, StorageY, StorageZ, VoxelType, Layer, true);
+
+	return true;
+}
+
+bool UVoxelTerrain::Intersect(const FVector& RayOrigin, const FVector& RayDirection, FIntVector& OutHitVoxelPosition, FVector& OutHitPosition, FVector& OutHitNormal) const
+{
+	// 参考UCPixelWorld::Intersect的实现
+	// 第一步：AABB预筛选，收集所有可能碰撞的Tiles
+	TArray<AVoxelTile*> CandidateTiles;
+	
+	for (const FIntPoint& TileKey : ActiveTiles)
+	{
+		if (!TileMap.Contains(TileKey))
+			continue;
+		
+		AVoxelTile* Tile = TileMap[TileKey];
+		if (!IsValid(Tile) || !Tile->IsActive())
+			continue;
+		
+		// 快速AABB检测
+		float TMin;
+		if (Tile->IntersectAABB(RayOrigin, RayDirection, TMin))
+		{
+			CandidateTiles.Add(Tile);
+		}
+	}
+	
+	// 如果没有候选Tile，直接返回
+	if (CandidateTiles.Num() == 0)
+		return false;
+	
+	// 第二步：对所有候选Tile进行精确检测，找到最近的hit
+	bool bFound = false;
+	float MinHitDist = FLT_MAX;
+	AVoxelTile* HitTile = nullptr;
+	FIntVector HitVoxelPos(0, 0, 0);
+	
+	for (AVoxelTile* Tile : CandidateTiles)
+	{
+		float HitDist;
+		FIntVector LocalVoxelPos;
+		if (Tile->Intersect(RayOrigin, RayDirection, HitDist, LocalVoxelPos))
+		{
+			if (HitDist < MinHitDist && HitDist >= 0.0f)
+			{
+				MinHitDist = HitDist;
+				HitTile = Tile;
+				HitVoxelPos = LocalVoxelPos;
+				bFound = true;
+			}
+		}
+	}
+	
+	if (!bFound || !HitTile)
+		return false;
+	
+	// 获取hit Tile的坐标
+	FIntPoint HitTileCoord = HitTile->TileCoord;
+	
+	
+	// 计算体素的局部坐标（从存储坐标转换为局部坐标）
+	const int32 TileSizeX = 32;
+	const int32 TileSizeY = 32;
+	const int32 TileSizeZ = 64;
+	const int32 HalfTileSizeX = TileSizeX / 2;
+	const int32 HalfTileSizeY = TileSizeY / 2;
+	const int32 HalfTileSizeZ = TileSizeZ / 2;
+	
+	int32 LocalVoxelX = HitVoxelPos.X - HalfTileSizeX;
+	int32 LocalVoxelY = HitVoxelPos.Y - HalfTileSizeY;
+	int32 LocalVoxelZ = HitVoxelPos.Z - HalfTileSizeZ;
+	
+	// 计算体素的世界坐标边界
+	FVector TileWorldPos = GetTileWorldPosition(HitTileCoord.X, HitTileCoord.Y);
+	FVector VoxelLocalMin = FVector(LocalVoxelX * VoxelSize, LocalVoxelY * VoxelSize, LocalVoxelZ * VoxelSize);
+	FVector VoxelLocalMax = VoxelLocalMin + FVector(VoxelSize, VoxelSize, VoxelSize);
+	
+	// 转换到世界坐标
+	FVector VoxelWorldMin = TileWorldPos + VoxelLocalMin;
+	FVector VoxelWorldMax = TileWorldPos + VoxelLocalMax;
+	
+	// 计算hit位置（参考ucpixelworld的方法）
+	FVector LocalRayOrigin = RayOrigin - TileWorldPos;
+	FVector LocalRayDir = RayDirection;
+	
+	// 计算体素的6个面的平面（参考ucpixelworld的方法）
+	FPlane Sides[6] = {
+		FPlane(0.0f, 0.0f, +1.0f, +VoxelLocalMax.Z),   // -Z face (Top)
+		FPlane(0.0f, 0.0f, -1.0f, -VoxelLocalMin.Z),   // +Z face (Bottom)
+		FPlane(0.0f, +1.0f, 0.0f, +VoxelLocalMax.Y),   // -Y face
+		FPlane(-1.0f, 0.0f, 0.0f, -VoxelLocalMin.X),   // +X face
+		FPlane(0.0f, -1.0f, 0.0f, -VoxelLocalMin.Y),   // +Y face
+		FPlane(+1.0f, 0.0f, 0.0f, +VoxelLocalMax.X),   // -X face
+	};
+		
+	int32 FindFaceID = -1;
+	float MinFaceDist = FLT_MAX;
+	
+	// 找到射线与6个面的最近交点（参考ucpixelworld的逻辑）
+	for (int32 FaceIdx = 0; FaceIdx < 6; ++FaceIdx)
+	{
+		FVector PlaneNormal = Sides[FaceIdx];
+		float CosTheta = FVector::DotProduct(PlaneNormal, LocalRayDir);
+		float Dist = Sides[FaceIdx].PlaneDot(LocalRayOrigin);
+		
+		// 如果几乎平行或几乎相交，跳过
+		if (FMath::Abs(Dist) < 0.0001f || FMath::Abs(CosTheta) < 0.0001f)
+			continue;
+		
+		// 只关心沿射线方向的交点
+		float FaceHitDist = -Dist / CosTheta;
+		if (FaceHitDist < 0.0f)
+			continue;
+		
+		if (FaceHitDist < MinFaceDist)
+		{
+			FVector FaceHitPt = LocalRayOrigin + LocalRayDir * FaceHitDist;
+			
+			// 验证交点是否在体素的边界内（参考代码使用+0.00015f容差）
+			bool bValid = true;
+			for (int32 j = 0; j < 6 && bValid; ++j)
+			{
+				if (j == FaceIdx)
+					continue;
+				float D = -Sides[j].PlaneDot(FaceHitPt);
+				bValid = ((D + 0.00015f) >= 0.0f);
+			}
+			
+			if (bValid)
+			{
+				FindFaceID = FaceIdx;
+				MinFaceDist = FaceHitDist;
+			}
+		}
+	}
+	
+	if (FindFaceID == -1)
+		return false;
+	
+	// 计算世界坐标的hit位置和法线
+	FVector LocalHitPos = LocalRayOrigin + LocalRayDir * MinFaceDist;
+	OutHitVoxelPosition = HitVoxelPos;
+	OutHitPosition = LocalHitPos;
+	OutHitNormal = Sides[FindFaceID];
+	
+	return true;
+}
+
+void UVoxelTerrain::SerializeToMapData(UCVoxelMapData& MapData) const
+{
+	// 清空现有数据
+	MapData._AryTiles.RemoveAll();
+	
+	// 遍历所有Tile，序列化每个Tile的数据
+	for (const auto& TilePair : TileMap)
+	{
+		const FIntPoint& TileKey = TilePair.Key;
+		AVoxelTile* Tile = TilePair.Value;
+		
+		if (!IsValid(Tile))
+			continue;
+		
+		// 创建Tile数据
+		UCVoxelTileData TileData;
+		TileData.TileX = TileKey.X;
+		TileData.TileY = TileKey.Y;
+		
+		// 清空数组
+		TileData._AryVoxels.RemoveAll();
+		
+		// Tile尺寸
+		const int32 TileSizeX = AVoxelTile::TileSizeX;
+		const int32 TileSizeY = AVoxelTile::TileSizeY;
+		const int32 TileSizeZ = AVoxelTile::TileSizeZ;
+		const int32 TotalVoxels = TileSizeX * TileSizeY * TileSizeZ;
+		
+		// 遍历所有体素，提取Type和Layer
+		for (int32 Z = 0; Z < TileSizeZ; ++Z)
+		{
+			for (int32 Y = 0; Y < TileSizeY; ++Y)
+			{
+				for (int32 X = 0; X < TileSizeX; ++X)
+				{
+					FVoxelData Voxel = Tile->GetVoxel(X, Y, Z);
+					
+					// 添加Type和Layer到数组
+					TileData._AryVoxels.Add((_UCEArray::TValue&)Voxel);
+				}
+			}
+		}
+		
+		// 添加到MapData
+		MapData._AryTiles.Add(*(_UCEArray::TValue*)&TileData);
 	}
 }
 
-
-
+void UVoxelTerrain::DeserializeFromMapData(const UCVoxelMapData& MapData, UWorld* World)
+{
+	if (!World)
+		return;
+	
+	// 清空现有Tile
+	TileMap.Empty();
+	ActiveTiles.Empty();
+	
+	// 遍历所有Tile数据
+	int32 TileCount = MapData._AryTiles.GetSize();
+	for (int32 i = 0; i < TileCount; ++i)
+	{
+		UCVoxelTileData& TileData = (UCVoxelTileData&)MapData._AryTiles.GetAt(i);
+		
+		// 获取或创建Tile
+		AVoxelTile* Tile = GetTile(TileData.TileX, TileData.TileY, World, true);
+		if (!Tile)
+			continue;
+		
+		// Tile尺寸
+		const int32 TileSizeX = AVoxelTile::TileSizeX;
+		const int32 TileSizeY = AVoxelTile::TileSizeY;
+		const int32 TileSizeZ = AVoxelTile::TileSizeZ;
+		const int32 TotalVoxels = TileSizeX * TileSizeY * TileSizeZ;
+		
+		// 检查数据大小
+		if (TileData._AryVoxels.GetSize() != TotalVoxels)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::DeserializeFromMapData: Tile data size mismatch for Tile(%d,%d)"), 
+				TileData.TileX, TileData.TileY);
+			continue;
+		}
+		
+		// 遍历所有体素，设置Type和Layer
+		int32 VoxelIndex = 0;
+		for (int32 Z = 0; Z < TileSizeZ; ++Z)
+		{
+			for (int32 Y = 0; Y < TileSizeY; ++Y)
+			{
+				for (int32 X = 0; X < TileSizeX; ++X)
+				{
+					// 获取Type和Layer
+					const UCVoxelData& Type = (UCVoxelData&)TileData._AryVoxels.GetAt(VoxelIndex);
+					
+					// 设置体素（不立即更新网格，最后统一更新）
+					Tile->SetVoxel(X, Y, Z, Type.Type, Type.Layer, false);
+					
+					++VoxelIndex;
+				}
+			}
+		}
+		
+		// 更新网格
+		Tile->UpdateMesh();
+		
+		// 激活Tile
+		FIntPoint TileKey = GetTileKey(TileData.TileX, TileData.TileY);
+		ActiveTiles.Add(TileKey);
+		Tile->SetActive(true);
+	}
+}

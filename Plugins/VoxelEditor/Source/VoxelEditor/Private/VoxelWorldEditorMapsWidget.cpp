@@ -26,15 +26,15 @@ purpose:	VoxelWorldEditor Maps Widget - 地图管理窗口实现
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/PlatformFile.h"
-#include "EditorModeManager.h"
 #include "Editor.h"
 #include "EditorModeTools.h"
 #include "LevelEditor.h"
-#include "LevelEditorActions.h"
+#include "EditorModes.h"
 
 void SVoxelWorldEditorMapsWidget::Construct(const FArguments& InArgs)
 {
 	VoxelWorldEditor = InArgs._VoxelWorldEditor;
+	ParentWindow = InArgs._ParentWindow;
 
 	TSharedPtr<STreeView<TSharedPtr<FVoxelMapTreeNode>>> TreeViewRef;
 
@@ -66,10 +66,30 @@ void SVoxelWorldEditorMapsWidget::Construct(const FArguments& InArgs)
 				// 删除按钮
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
+				.Padding(0, 0, 5, 0)
 				[
 					SNew(SButton)
 					.Text(NSLOCTEXT("VoxelEditor", "DeleteMap", "删除"))
 					.OnClicked(this, &SVoxelWorldEditorMapsWidget::OnDeleteMapClicked)
+				]
+
+				// 保存按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(0, 0, 5, 0)
+				[
+					SNew(SButton)
+					.Text(NSLOCTEXT("VoxelEditor", "SaveMap", "保存"))
+					.OnClicked(this, &SVoxelWorldEditorMapsWidget::OnSaveMapClicked)
+				]
+
+				// 关闭按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.Text(NSLOCTEXT("VoxelEditor", "Close", "关闭"))
+					.OnClicked(this, &SVoxelWorldEditorMapsWidget::OnCloseClicked)
 				]
 			]
 
@@ -713,6 +733,51 @@ FReply SVoxelWorldEditorMapsWidget::OnDeleteMapClicked()
 	return FReply::Handled();
 }
 
+FReply SVoxelWorldEditorMapsWidget::OnSaveMapClicked()
+{
+	if (!VoxelWorldEditor.IsValid())
+	{
+		return FReply::Handled();
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditor.Get();
+	if (!WorldEditor)
+	{
+		return FReply::Handled();
+	}
+
+	// 获取当前地图文件路径
+	FString MapFilePath = WorldEditor->GetCurrentMapFilePath();
+	
+	if (MapFilePath.IsEmpty())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			NSLOCTEXT("VoxelEditor", "NoMapLoadedError", "当前没有加载地图！请先双击一个地图来加载。"));
+		return FReply::Handled();
+	}
+
+	// 保存地图
+	WorldEditor->SaveMap(MapFilePath);
+	
+	FString Message = FString::Printf(TEXT("地图已保存到：%s"), *MapFilePath);
+	FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Message));
+	
+	UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Saved map to %s"), *MapFilePath);
+	
+	return FReply::Handled();
+}
+
+FReply SVoxelWorldEditorMapsWidget::OnCloseClicked()
+{
+	// 关闭父窗口
+	if (ParentWindow.IsValid())
+	{
+		FSlateApplication::Get().RequestDestroyWindow(ParentWindow.Pin().ToSharedRef());
+	}
+
+	return FReply::Handled();
+}
+
 void SVoxelWorldEditorMapsWidget::OnMapSelectionChanged(TSharedPtr<FVoxelMapTreeNode> SelectedItem, ESelectInfo::Type SelectInfo)
 {
 	SelectedNode = SelectedItem;
@@ -757,6 +822,9 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 		UCString UCMapFile = UCString(*MapFile);
 		if (WorldEditor->GetMapManager().LoadMap(UCMapFile))
 		{
+			// 保存当前地图文件路径
+			WorldEditor->SetCurrentMapFilePath(MapFile);
+			
 			UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Loaded map: %s"), *MapFile);
 			
 			// 获取当前地图的尺寸
@@ -770,25 +838,14 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 				UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Map size: %dx%d"), MapWidth, MapHeight);
 				
 				// 更新Edit分页的UI
-				// 通过EditorModeManager获取当前的EditorMode
-				if (GEditor)
+				// 通过静态方法获取当前的EditorMode
+				UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();
+				if (VoxelMode)
 				{
-					FEditorModeTools* ModeTools = GEditor->GetEditorSubsystem<UEditorModeManager>()->GetEditorModeTools();
-					if (ModeTools)
+					TSharedPtr<FVoxelEditorEditorModeToolkit> Toolkit = VoxelMode->GetToolkit();
+					if (Toolkit.IsValid())
 					{
-						FEdMode* CurrentMode = ModeTools->GetActiveMode(UVoxelEditorEditorMode::EM_VoxelEditorEditorModeId);
-						if (CurrentMode)
-						{
-							UEdMode* EdMode = CurrentMode->GetModeObject();
-							if (UVoxelEditorEditorMode* VoxelMode = Cast<UVoxelEditorEditorMode>(EdMode))
-							{
-								TSharedPtr<FVoxelEditorEditorModeToolkit> Toolkit = VoxelMode->GetToolkit();
-								if (Toolkit.IsValid())
-								{
-									Toolkit->UpdateEditToolGridFromMap(MapWidth, MapHeight);
-								}
-							}
-						}
+						Toolkit->UpdateEditToolGridFromMap(MapWidth, MapHeight);
 					}
 				}
 			}
@@ -799,6 +856,22 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 				NSLOCTEXT("VoxelEditor", "LoadMapError", "加载地图失败！"));
 		}
 	}
+}
+
+FString SVoxelWorldEditorMapsWidget::GetCurrentMapFilePath() const
+{
+	if (!VoxelWorldEditor.IsValid())
+	{
+		return FString();
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditor.Get();
+	if (!WorldEditor)
+	{
+		return FString();
+	}
+
+	return WorldEditor->GetCurrentMapFilePath();
 }
 
 FString SVoxelWorldEditorMapsWidget::GetNodePath(TSharedPtr<FVoxelMapTreeNode> Node)

@@ -49,6 +49,16 @@ public:
 
 	/** 获取地图管理器（用于UI访问） */
 	UCVoxelMapManager& GetMapManager() { return MapManager; }
+
+	/** 设置当前加载的地图文件路径 */
+	void SetCurrentMapFilePath(const FString& FilePath) { CurrentMapFilePath = FilePath; }
+
+	/** 获取当前加载的地图文件路径 */
+	FString GetCurrentMapFilePath() const { return CurrentMapFilePath; }
+
+private:
+	/** 当前加载的地图文件路径 */
+	FString CurrentMapFilePath;
 #endif
 };
 

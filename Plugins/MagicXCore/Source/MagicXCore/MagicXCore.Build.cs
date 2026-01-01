@@ -79,11 +79,11 @@ public class MagicXCore : ModuleRules
 				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "uccompileu64.lib"));
 				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "ucsharpu64.lib"));
 				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "ucgeometryu64.lib"));
-				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "DebugU64", "uc3du64.lib"));
+				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "uc3du64.lib"));
 				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "ucnetbaseu64.lib"));
-				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "DebugU64", "ucuiu64.lib"));
-				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "DebugU64", "ucdeviceu64.lib"));
-				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "DebugU64", "ucgamebaseu64.lib"));
+				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "ucuiu64.lib"));
+				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "ucdeviceu64.lib"));
+				PublicAdditionalLibraries.Add(Path.Combine(MagicXSDKPath, "winexe", "lib", "PublishU64", "ucgamebaseu64.lib"));
 			}
 		}
 		

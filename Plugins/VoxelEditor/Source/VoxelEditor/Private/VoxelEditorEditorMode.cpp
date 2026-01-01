@@ -10,6 +10,10 @@
 #include "EngineUtils.h"
 #if WITH_EDITOR
 #include "Misc/MessageDialog.h"
+#include "EditorModeTools.h"
+#include "EditorModes.h"
+#include "LevelEditor.h"
+#include "EditorModeManager.h"
 #endif
 
 
@@ -31,6 +35,7 @@ const FEditorModeID UVoxelEditorEditorMode::EM_VoxelEditorEditorModeId = TEXT("E
 FString UVoxelEditorEditorMode::MapsToolName = TEXT("VoxelEditor_MapsTool");
 FString UVoxelEditorEditorMode::EditToolName = TEXT("VoxelEditor_EditTool");
 bool UVoxelEditorEditorMode::bMapLoaded = false;
+UVoxelEditorEditorMode* UVoxelEditorEditorMode::ActiveInstance = nullptr;
 
 
 UVoxelEditorEditorMode::UVoxelEditorEditorMode()
@@ -74,53 +79,19 @@ void UVoxelEditorEditorMode::Enter()
 	
 	// Initially, no map is loaded, so Edit tool should be disabled
 	bMapLoaded = false;
+
+	// 保存当前实例
+	ActiveInstance = this;
 }
 
 void UVoxelEditorEditorMode::Exit()
 {
 #if WITH_EDITOR
-	// 退出编辑器模式时，提示保存并销毁 VoxelWorldEditor
-	if (VoxelWorldEditorInstance && IsValid(VoxelWorldEditorInstance))
+	// 退出编辑器模式时，不清除 VoxelWorldEditor 实例（保留以便下次使用）
+	// 清除当前实例引用
+	if (ActiveInstance == this)
 	{
-		// 检查是否有未保存的更改（这里可以根据实际需求实现更复杂的检查逻辑）
-		bool bHasUnsavedChanges = false; // TODO: 实现未保存更改检查
-
-		if (bHasUnsavedChanges)
-		{
-			// 显示保存提示对话框
-			FText Title = LOCTEXT("SaveChangesTitle", "Save Changes?");
-			FText Message = LOCTEXT("SaveChangesMessage", "You have unsaved changes in VoxelWorldEditor. Do you want to save before exiting?");
-			
-			EAppReturnType::Type Result = FMessageDialog::Open(
-				EAppMsgType::YesNoCancel,
-				Message,
-				Title
-			);
-
-			if (Result == EAppReturnType::Yes)
-			{
-				// 保存地图（这里可以调用 VoxelWorldEditorInstance->SaveMap()）
-				// TODO: 实现保存逻辑
-				UE_LOG(LogTemp, Log, TEXT("VoxelEditor: Saving VoxelWorldEditor before exit"));
-			}
-			else if (Result == EAppReturnType::Cancel)
-			{
-				// 取消退出（这里需要阻止退出，但 UEdMode::Exit() 没有返回值，所以只能记录日志）
-				UE_LOG(LogTemp, Log, TEXT("VoxelEditor: Exit cancelled by user"));
-			}
-		}
-
-		// 销毁 VoxelWorldEditor 实例
-		if (VoxelWorldEditorInstance)
-		{
-			UWorld* World = VoxelWorldEditorInstance->GetWorld();
-			if (World)
-			{
-				World->DestroyActor(VoxelWorldEditorInstance);
-				UE_LOG(LogTemp, Log, TEXT("VoxelEditor: Destroyed VoxelWorldEditor instance"));
-			}
-			VoxelWorldEditorInstance = nullptr;
-		}
+		ActiveInstance = nullptr;
 	}
 #endif
 
@@ -140,6 +111,11 @@ TMap<FName, TArray<TSharedPtr<FUICommandInfo>>> UVoxelEditorEditorMode::GetModeC
 TSharedPtr<FVoxelEditorEditorModeToolkit> UVoxelEditorEditorMode::GetToolkit() const
 {
 	return StaticCastSharedPtr<FVoxelEditorEditorModeToolkit>(Toolkit);
+}
+
+UVoxelEditorEditorMode* UVoxelEditorEditorMode::GetActiveEditorMode()
+{
+	return ActiveInstance;
 }
 
 #undef LOCTEXT_NAMESPACE

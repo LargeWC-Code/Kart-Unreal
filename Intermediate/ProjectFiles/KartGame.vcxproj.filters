@@ -212,7 +212,7 @@
     <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelCore.cpp">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelData.cpp">
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelMap.cpp">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelTerrain.cpp">
@@ -224,7 +224,7 @@
     <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelCore.h">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelData.h">
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelMap.h">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelTerrain.h">
@@ -420,6 +420,15 @@
     <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.h">
       <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelTile.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelData.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelEditVolume.h">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelWorldBase.cpp">
@@ -436,6 +445,12 @@
     </ClCompile>
     <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.cpp">
       <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelTile.cpp">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelEditVolume.cpp">
+      <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

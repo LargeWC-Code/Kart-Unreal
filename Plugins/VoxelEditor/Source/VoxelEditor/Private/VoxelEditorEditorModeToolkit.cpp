@@ -21,6 +21,9 @@
 #include "Styling/AppStyle.h"
 #include "Styling/SlateColor.h"
 #include "Styling/CoreStyle.h"
+#include "VoxelEditVolume.h"
+#include "VoxelTerrain.h"
+#include "Editor.h"
 
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
@@ -45,34 +48,82 @@ void FVoxelEditorEditorModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToo
 	// 保存 OwningMode，供 GetInlineContent() 使用
 	OwningMode = InOwningMode;
 
-	// 创建 VoxelWorldEditor 实例
+	// 检查是否已有 VoxelWorldEditor 实例
 	AVoxelWorldEditor* NewVoxelWorldEditorInstance = nullptr;
 	if (UVoxelEditorEditorMode* EditorMode = Cast<UVoxelEditorEditorMode>(InOwningMode.Get()))
 	{
-		if (UWorld* World = EditorMode->GetWorld())
+		// 先检查是否已有实例
+		NewVoxelWorldEditorInstance = EditorMode->GetVoxelWorldEditorInstance();
+		
+		// 如果已有实例且有效，直接使用
+		if (NewVoxelWorldEditorInstance && IsValid(NewVoxelWorldEditorInstance))
 		{
-			// 生成唯一的 GUID 并组合到名称中
-			FGuid UniqueID = FGuid::NewGuid();
-			FString UniqueName = FString::Printf(TEXT("VoxelWorldEditor_%s"), *UniqueID.ToString(EGuidFormats::Short));
-			
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Name = FName(*UniqueName);
-			NewVoxelWorldEditorInstance = World->SpawnActor<AVoxelWorldEditor>(SpawnParams);
-			if (NewVoxelWorldEditorInstance)
+			UE_LOG(LogTemp, Log, TEXT("VoxelEditorToolkit: Reusing existing VoxelWorldEditor instance"));
+		}
+		else
+		{
+			// 如果没有现存的实例，创建新的
+			if (UWorld* World = EditorMode->GetWorld())
 			{
-				UE_LOG(LogTemp, Log, TEXT("VoxelEditorToolkit: Created VoxelWorldEditor instance in Init with name: %s"), *UniqueName);
-				// 将实例保存到 EditorMode 中，以便 Exit 时可以销毁
-				EditorMode->SetVoxelWorldEditorInstance(NewVoxelWorldEditorInstance);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("VoxelEditorToolkit: Failed to create VoxelWorldEditor instance"));
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Name = FName(TEXT("VoxelWorldEditor"));
+				NewVoxelWorldEditorInstance = World->SpawnActor<AVoxelWorldEditor>(SpawnParams);
+				if (NewVoxelWorldEditorInstance)
+				{
+					// 设置文件夹路径：VoxelWorld
+					NewVoxelWorldEditorInstance->SetFolderPath(FName(TEXT("VoxelWorld")));
+					
+					UE_LOG(LogTemp, Log, TEXT("VoxelEditorToolkit: Created VoxelWorldEditor instance in Init"));
+					// 将实例保存到 EditorMode 中
+					EditorMode->SetVoxelWorldEditorInstance(NewVoxelWorldEditorInstance);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("VoxelEditorToolkit: Failed to create VoxelWorldEditor instance"));
+				}
 			}
 		}
 	}
 
 	// 保存 VoxelWorldEditor 实例，供 GetInlineContent() 使用
 	VoxelWorldEditorInstance = NewVoxelWorldEditorInstance;
+
+	// 确保只有一个 VoxelEditVolume 存在
+	if (UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr)
+	{
+		TArray<AVoxelEditVolume*> EditVolumes;
+		for (TActorIterator<AVoxelEditVolume> ActorItr(World); ActorItr; ++ActorItr)
+		{
+			AVoxelEditVolume* EditVolume = *ActorItr;
+			if (IsValid(EditVolume))
+			{
+				EditVolumes.Add(EditVolume);
+			}
+		}
+
+		// 如果存在多个或没有，处理
+		if (EditVolumes.Num() > 1)
+		{
+			// 保留第一个，删除其他的
+			for (int32 i = 1; i < EditVolumes.Num(); ++i)
+			{
+				World->DestroyActor(EditVolumes[i]);
+				UE_LOG(LogTemp, Log, TEXT("VoxelEditorToolkit: Removed duplicate VoxelEditVolume"));
+			}
+		}
+		else if (EditVolumes.Num() == 0)
+		{
+			// 如果没有，创建一个默认的
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Name = FName(TEXT("VoxelEditVolume"));
+			AVoxelEditVolume* NewEditVolume = World->SpawnActor<AVoxelEditVolume>(SpawnParams);
+			if (NewEditVolume)
+			{
+				NewEditVolume->SetFolderPath(FName(TEXT("VoxelWorld")));
+				UE_LOG(LogTemp, Log, TEXT("VoxelEditorToolkit: Created default VoxelEditVolume"));
+			}
+		}
+	}
 }
 
 TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetInlineContent() const
@@ -163,22 +214,79 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 		.Padding(10.0f)
 		.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
 		[
-			SNew(SBox)
-			.WidthOverride(VisibleWidth)
-			.HeightOverride(VisibleHeight)
+			SNew(SVerticalBox)
+			
+			// 编辑体积操作区域
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0, 0, 0, 10)
 			[
-				SNew(SScrollBox)
-					.Orientation(Orient_Horizontal)
-					+ SScrollBox::Slot()
-					.Padding(5.0f)
-					[
-						SNew(SScrollBox)
-							.Orientation(Orient_Vertical)
-							+ SScrollBox::Slot()
-							[
-								SAssignNew(EditToolGridPanel, SUniformGridPanel)
-							]
-					]
+				SNew(SHorizontalBox)
+				
+				// 清空当前Tile按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(0, 0, 5, 0)
+				[
+					SNew(SButton)
+					.Text(NSLOCTEXT("VoxelEditor", "ClearCurrentTile", "清空地块"))
+					.OnClicked_Lambda([this]()
+					{
+						ClearCurrentTile();
+						return FReply::Handled();
+					})
+				]
+				
+				// 填充编辑体积按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 0, 5, 0)
+				[
+					SNew(SButton)
+					.Text(NSLOCTEXT("VoxelEditor", "FillEditVolume", "填充体积"))
+					.OnClicked_Lambda([this]()
+					{
+						ApplyEditVolume();
+						return FReply::Handled();
+					})
+				]
+				
+				// 清空编辑体积按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 0, 0, 0)
+				[
+					SNew(SButton)
+					.Text(NSLOCTEXT("VoxelEditor", "ClearEditVolume", "清空体积"))
+					.OnClicked_Lambda([this]()
+					{
+						ClearEditVolume();
+						return FReply::Handled();
+					})
+				]
+			]
+			
+			// 网格区域
+			+ SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				SNew(SBox)
+				.WidthOverride(VisibleWidth)
+				.HeightOverride(VisibleHeight)
+				[
+					SNew(SScrollBox)
+						.Orientation(Orient_Horizontal)
+						+ SScrollBox::Slot()
+						.Padding(5.0f)
+						[
+							SNew(SScrollBox)
+								.Orientation(Orient_Vertical)
+								+ SScrollBox::Slot()
+								[
+									SAssignNew(EditToolGridPanel, SUniformGridPanel)
+								]
+						]
+				]
 			]
 		];
 	
@@ -235,14 +343,16 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 	// 创建按钮
 	const float ButtonSize = 50.0f;
 	
-	for (int32 Row = 0; Row < MapHeight; ++Row)
-	{
-		for (int32 Col = 0; Col < MapWidth; ++Col)
+		for (int32 Row = 0; Row < MapHeight; ++Row)
 		{
-			int32 ButtonIndex = Row * MapWidth + Col;
-			// 计算坐标：X和Y都从-(MapWidth/2)到(MapWidth/2-1)和-(MapHeight/2)到(MapHeight/2-1)
-			int32 X = Col - (MapWidth / 2);
-			int32 Y = (MapHeight / 2 - 1) - Row; // Y轴反转
+			for (int32 Col = 0; Col < MapWidth; ++Col)
+			{
+				int32 ButtonIndex = Row * MapWidth + Col;
+				// 计算坐标：中心为(0,0)
+				// X坐标：从-(MapWidth-1)/2 到 (MapWidth-1)/2
+				// Y坐标：从-(MapHeight-1)/2 到 (MapHeight-1)/2（Y轴反转，顶部为正）
+				int32 X = Col - (MapWidth - 1) / 2;
+				int32 Y = (MapHeight - 1) / 2 - Row; // Y轴反转，使顶部为正
 			
 			// 创建坐标文本
 			FString CoordText = FString::Printf(TEXT("%d,%d"), X, Y);
@@ -268,6 +378,76 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 								UE_LOG(LogTemp, Log, TEXT("Edit Tool Button [%d,%d] clicked, Active: %s"), 
 									X, Y,
 									EditToolButtonStates[ButtonIndex] ? TEXT("true") : TEXT("false"));
+								
+								// 激活/取消激活对应的地块
+								if (VoxelWorldEditorInstance.IsValid())
+								{
+									AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+									if (WorldEditor)
+									{
+										UVoxelTerrain* Terrain = WorldEditor->GetTerrain();
+										if (!Terrain)
+										{
+											Terrain = WorldEditor->CreateTerrain();
+										}
+										
+										if (Terrain && WorldEditor->GetWorld())
+										{
+											// 设置地块激活状态（会自动创建或销毁）
+											Terrain->SetTileActive(X, Y, WorldEditor->GetWorld(), EditToolButtonStates[ButtonIndex]);
+											UE_LOG(LogTemp, Log, TEXT("Tile [%d,%d] set to %s"), 
+												X, Y,
+												EditToolButtonStates[ButtonIndex] ? TEXT("Active") : TEXT("Inactive"));
+											
+											// 如果激活了Tile，更新VoxelEditVolume的位置和大小
+											if (EditToolButtonStates[ButtonIndex])
+											{
+												// 查找VoxelEditVolume
+												AVoxelEditVolume* EditVolume = nullptr;
+												for (TActorIterator<AVoxelEditVolume> ActorItr(WorldEditor->GetWorld()); ActorItr; ++ActorItr)
+												{
+													AVoxelEditVolume* Volume = *ActorItr;
+													if (IsValid(Volume))
+													{
+														EditVolume = Volume;
+														break;
+													}
+												}
+												
+												// 如果找到了EditVolume，更新其位置和大小
+												if (EditVolume && EditVolume->BoxComponent)
+												{
+													// 计算Tile的世界位置（Tile中心）
+													// Tile (0,0)的中心在(0, 0, 0)，每个Tile是32*32*64个体素
+													const float TileSizeX = 32.0f;
+													const float TileSizeY = 32.0f;
+													const float TileSizeZ = 64.0f;
+													const float VoxelSize = Terrain->VoxelSize;
+													const float TileWorldSize = TileSizeX * VoxelSize; // 3200厘米
+													
+													// Tile中心位置：根据之前的代码修改，Tile (0,0)的中心在(0, 0, 0)
+													// X和Y方向：从-16*100到+16*100，中心在0
+													// Z方向：从0到64*100，中心在32*100=3200
+													float TileCenterX = X * TileWorldSize;
+													float TileCenterY = Y * TileWorldSize;
+													float TileCenterZ = (TileSizeZ * VoxelSize) * 0.5f; // 32 * 100 = 3200
+													
+													// 设置Volume位置为Tile中心
+													FVector VolumePosition(TileCenterX, TileCenterY, TileCenterZ);
+													EditVolume->SetActorLocation(VolumePosition);
+													
+													// 设置Volume大小：3200x3200x6400（厘米），SetBoxExtent使用半尺寸
+													FVector BoxExtent(1600.0f, 1600.0f, 3200.0f); // 半尺寸：3200/2, 3200/2, 6400/2
+													EditVolume->BoxComponent->SetBoxExtent(BoxExtent);
+													
+													UE_LOG(LogTemp, Log, TEXT("Updated VoxelEditVolume position to Tile [%d,%d] center: (%.2f, %.2f, %.2f), size: (%.2f, %.2f, %.2f)"), 
+														X, Y, VolumePosition.X, VolumePosition.Y, VolumePosition.Z, 
+														BoxExtent.X * 2.0f, BoxExtent.Y * 2.0f, BoxExtent.Z * 2.0f);
+												}
+											}
+										}
+									}
+								}
 								
 								// 触发整个网格面板的刷新，以更新所有按钮的状态显示
 								if (EditToolGridPanel.IsValid())
@@ -319,6 +499,276 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 	{
 		EditToolGridPanel->Invalidate(EInvalidateWidget::Layout);
 	}
+}
+
+void FVoxelEditorEditorModeToolkit::ApplyEditVolume() const
+{
+	// 获取当前世界
+	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot get editor world"));
+		return;
+	}
+
+	// 查找第一个有效的编辑体积
+	AVoxelEditVolume* SelectedVolume = nullptr;
+	for (TActorIterator<AVoxelEditVolume> ActorItr(World); ActorItr; ++ActorItr)
+	{
+		AVoxelEditVolume* EditVolume = *ActorItr;
+		if (IsValid(EditVolume))
+		{
+			SelectedVolume = EditVolume;
+			break;
+		}
+	}
+
+	if (!SelectedVolume)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No edit volume found in the world"));
+		return;
+	}
+
+	// 获取 VoxelWorldEditor 和 Terrain
+	if (!VoxelWorldEditorInstance.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("VoxelWorldEditor instance is not valid"));
+		return;
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+	if (!WorldEditor)
+	{
+		return;
+	}
+
+	UVoxelTerrain* Terrain = WorldEditor->GetTerrain();
+	if (!Terrain)
+	{
+		Terrain = WorldEditor->CreateTerrain();
+	}
+
+	if (!Terrain)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot get or create Terrain"));
+		return;
+	}
+
+	// 获取编辑体积的边界框
+	FBox VolumeBounds = SelectedVolume->GetVolumeBounds();
+	FVector Min = VolumeBounds.Min;
+	FVector Max = VolumeBounds.Max;
+	
+	FVector Dis = VolumeBounds.GetExtent();
+
+	int ExtentX = FMath::RoundToInt(Dis.X / 100.0f);
+	int ExtentY = FMath::RoundToInt(Dis.Y / 100.0f);
+	int ExtentZ = FMath::RoundToInt(Dis.Z / 100.0f);
+
+	if (ExtentX % 2 == 1)
+	{
+		Min.X += 50.0f;
+		Max.X -= 50.0f;
+	}
+
+	if (ExtentY % 2 == 1)
+	{
+		Min.Y += 50.0f;
+		Max.Y -= 50.0f;
+	}
+
+	if (ExtentZ % 2 == 1)
+	{
+		Min.Z += 50.0f;
+		Max.Z -= 50.0f;
+	}
+	// 调用 Terrain 的填充方法
+	Terrain->FillRegion(Min, Max, SelectedVolume->VoxelType, SelectedVolume->VoxelLayer, World);
+}
+
+void FVoxelEditorEditorModeToolkit::ClearEditVolume() const
+{
+	// 获取当前世界
+	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot get editor world"));
+		return;
+	}
+
+	// 查找第一个有效的编辑体积
+	AVoxelEditVolume* SelectedVolume = nullptr;
+	for (TActorIterator<AVoxelEditVolume> ActorItr(World); ActorItr; ++ActorItr)
+	{
+		AVoxelEditVolume* EditVolume = *ActorItr;
+		if (IsValid(EditVolume))
+		{
+			SelectedVolume = EditVolume;
+			break;
+		}
+	}
+
+	if (!SelectedVolume)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No edit volume found in the world"));
+		return;
+	}
+
+	// 获取 VoxelWorldEditor 和 Terrain
+	if (!VoxelWorldEditorInstance.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("VoxelWorldEditor instance is not valid"));
+		return;
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+	if (!WorldEditor)
+	{
+		return;
+	}
+
+	UVoxelTerrain* Terrain = WorldEditor->GetTerrain();
+	if (!Terrain)
+	{
+		Terrain = WorldEditor->CreateTerrain();
+	}
+
+	if (!Terrain)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot get or create Terrain"));
+		return;
+	}
+
+	// 获取编辑体积的边界框
+	FBox VolumeBounds = SelectedVolume->GetVolumeBounds();
+	FVector Min = VolumeBounds.Min;
+	FVector Max = VolumeBounds.Max;
+	
+	FVector Dis = VolumeBounds.GetExtent();
+
+	int ExtentX = FMath::RoundToInt(Dis.X / 100.0f);
+	int ExtentY = FMath::RoundToInt(Dis.Y / 100.0f);
+	int ExtentZ = FMath::RoundToInt(Dis.Z / 100.0f);
+
+	if (ExtentX % 2 == 1)
+	{
+		Min.X += 50.0f;
+		Max.X -= 50.0f;
+	}
+
+	if (ExtentY % 2 == 1)
+	{
+		Min.Y += 50.0f;
+		Max.Y -= 50.0f;
+	}
+
+	if (ExtentZ % 2 == 1)
+	{
+		Min.Z += 50.0f;
+		Max.Z -= 50.0f;
+	}
+
+	// 调用 Terrain 的填充方法，类型为0表示清空
+	Terrain->FillRegion(Min, Max, 0, 0, World);
+	
+	UE_LOG(LogTemp, Log, TEXT("Cleared edit volume region from (%.2f, %.2f, %.2f) to (%.2f, %.2f, %.2f)"), 
+		Min.X, Min.Y, Min.Z, Max.X, Max.Y, Max.Z);
+}
+
+void FVoxelEditorEditorModeToolkit::ClearCurrentTile() const
+{
+	// 获取当前世界
+	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot get editor world"));
+		return;
+	}
+
+	// 查找第一个有效的编辑体积
+	AVoxelEditVolume* SelectedVolume = nullptr;
+	for (TActorIterator<AVoxelEditVolume> ActorItr(World); ActorItr; ++ActorItr)
+	{
+		AVoxelEditVolume* EditVolume = *ActorItr;
+		if (IsValid(EditVolume))
+		{
+			SelectedVolume = EditVolume;
+			break;
+		}
+	}
+
+	if (!SelectedVolume)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No edit volume found in the world"));
+		return;
+	}
+
+	// 获取 VoxelWorldEditor 和 Terrain
+	if (!VoxelWorldEditorInstance.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("VoxelWorldEditor instance is not valid"));
+		return;
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+	if (!WorldEditor)
+	{
+		return;
+	}
+
+	UVoxelTerrain* Terrain = WorldEditor->GetTerrain();
+	if (!Terrain)
+	{
+		Terrain = WorldEditor->CreateTerrain();
+	}
+
+	if (!Terrain)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot get or create Terrain"));
+		return;
+	}
+
+	// 获取编辑体积的中心位置
+	FVector VolumeCenter = SelectedVolume->GetActorLocation();
+	float VoxelSize = Terrain->VoxelSize;
+	
+	// 计算体素坐标
+	int32 VoxelX = FMath::FloorToInt(VolumeCenter.X / VoxelSize);
+	int32 VoxelY = FMath::FloorToInt(VolumeCenter.Y / VoxelSize);
+	
+	// 计算Tile坐标
+	const int32 TileSizeX = 32;
+	const int32 TileSizeY = 32;
+	const int32 HalfTileSizeX = TileSizeX / 2; // 16
+	const int32 HalfTileSizeY = TileSizeY / 2; // 16
+
+	auto FloorDiv = [](int32 Dividend, int32 Divisor) -> int32 {
+		if (Dividend >= 0)
+			return Dividend / Divisor;
+		else
+			return (Dividend - Divisor + 1) / Divisor;
+	};
+
+	int32 TileX = FloorDiv(VoxelX + HalfTileSizeX, TileSizeX);
+	int32 TileY = FloorDiv(VoxelY + HalfTileSizeY, TileSizeY);
+
+	// 计算Tile的世界位置（Tile中心）
+	const float TileWorldSize = TileSizeX * VoxelSize; // 3200厘米
+	float TileCenterX = TileX * TileWorldSize;
+	float TileCenterY = TileY * TileWorldSize;
+	
+	// Tile的边界：从-16*100到+16*100 (X和Y), 从0到64*100 (Z)
+	// Tile (0,0)的中心在(0, 0, 0)，边界从(-1600, -1600, 0)到(+1600, +1600, 6400)
+	const float TileSizeZ = 64.0f;
+	const float HalfTileWorldSize = HalfTileSizeX * VoxelSize; // 1600厘米
+	FVector TileMin = FVector(TileCenterX - HalfTileWorldSize, TileCenterY - HalfTileWorldSize, 0.0f);
+	FVector TileMax = FVector(TileCenterX + HalfTileWorldSize, TileCenterY + HalfTileWorldSize, TileSizeZ * VoxelSize);
+	
+	// 清空整个Tile区域
+	Terrain->FillRegion(TileMin, TileMax, 0, 0, World);
+	
+	UE_LOG(LogTemp, Log, TEXT("Cleared tile [%d, %d] from (%.2f, %.2f, %.2f) to (%.2f, %.2f, %.2f)"), 
+		TileX, TileY, TileMin.X, TileMin.Y, TileMin.Z, TileMax.X, TileMax.Y, TileMax.Z);
 }
 
 void FVoxelEditorEditorModeToolkit::GetToolPaletteNames(TArray<FName>& PaletteNames) const

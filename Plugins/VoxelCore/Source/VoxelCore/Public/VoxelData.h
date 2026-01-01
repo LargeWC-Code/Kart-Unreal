@@ -1,62 +1,40 @@
+/********************************************************************
+created:	2024/12/XX
+filename: 	VoxelData.h
+author:		Auto Generated
+
+purpose:	VoxelData - 体素数据类型定义
+*********************************************************************/
 #pragma once
 
-#include "CoreMinimal.h"  // For VOXELCORE_API (defined by build system)
-#include "ucgamebase.h"  // For UCString, UCEArray, etc. from MagicXCore
+#include "CoreMinimal.h"
+#include "VoxelData.generated.h"
 
-struct VOXELCORE_API UCVoxelPrefabData
+// 体素数据结构
+USTRUCT(BlueprintType)
+struct VOXELCORE_API FVoxelData
 {
-	UCString		Name;
-	ucINT			Type;
-};
+	GENERATED_BODY()
 
-struct VOXELCORE_API UCVoxelMapData
-{
-	UCSize			Size;
+	// 体素类型（0表示空，非0表示有体素）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	uint8 Type;
 
-	UCVoxelMapData();
-	~UCVoxelMapData();
-};
+	// 体素层（可用于多层地形）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	uint8 Layer;
 
-SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelMapData, UCVoxelMapData, ucTRUE);
-
-enum UCVoxelMapNodeData_Type
-{
-	UCVoxelMapNodeData_Folder = 0,
-	UCVoxelMapNodeData_Map
-};
-
-struct VOXELCORE_API UCVoxelMapNodeData
-{
-	ucINT			Type;
-	UCString		Name;
-	union
+	FVoxelData()
+		: Type(0)
+		, Layer(0)
 	{
-		UCEArray<UCVoxelMapNodeData>	AryNodes;
-		_UCEArray						_AryNodes;
-	};
-	UCVoxelMapNodeData();
-	UCVoxelMapNodeData(ucCONST UCVoxelMapNodeData&);
-	~UCVoxelMapNodeData();
+	}
 
-	UCVoxelMapNodeData& operator =(ucCONST UCVoxelMapNodeData&);
-};
+	FVoxelData(uint8 InType, uint8 InLayer)
+		: Type(InType)
+		, Layer(InLayer)
+	{
+	}
 
-SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelMapNodeData, UCVoxelMapNodeData, ucTRUE);
-
-class VOXELCORE_API UCVoxelMapManager
-{
-public:
-	UCVoxelMapNodeData					Root;
-
-	UCVoxelMapData*						Curr;
-public:
-	UCVoxelMapManager();
-	~UCVoxelMapManager();
-	ucBOOL	LoadFromFile(ucCONST UCString& Filename);
-	ucVOID	SaveToFile(ucCONST UCString& Filename);
-
-	ucVOID	NewCurrentMap(UCSize Size);
-
-	ucBOOL	LoadMap(ucCONST UCString& Filename);
-	ucVOID	SaveMap(ucCONST UCString& Filename);
+	bool IsEmpty() const { return Type == 0; }
 };

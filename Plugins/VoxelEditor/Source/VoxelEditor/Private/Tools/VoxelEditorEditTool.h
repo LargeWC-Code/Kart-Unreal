@@ -68,8 +68,7 @@ public:
 	/** IClickDragBehaviorTarget implementation */
 	virtual FInputRayHit CanBeginClickDragSequence(const FInputDeviceRay& PressPos) override;
 	virtual void OnClickPress(const FInputDeviceRay& PressPos) override;
-	virtual void OnClickDrag(const FInputDeviceRay& DragPos) override;
-	// these are not used in this Tool
+	virtual void OnClickDrag(const FInputDeviceRay& DragPos) override {}
 	virtual void OnClickRelease(const FInputDeviceRay& ReleasePos) override {}
 	virtual void OnTerminateDragSequence() override {}
 
@@ -86,13 +85,8 @@ protected:
 protected:
 	UWorld* TargetWorld = nullptr;		// target World we will raycast into
 
-	static const int MoveSecondPointModifierID = 1;		// identifier we associate with the shift key
-	bool bSecondPointModifierDown = false;				// flag we use to keep track of modifier state
-	bool bMoveSecondPoint = false;						// flag we use to keep track of which point we are moving during a press-drag
-
-	FInputRayHit FindRayHit(const FRay& WorldRay, FVector& HitPos);		// raycasts into World
-	void UpdatePosition(const FRay& WorldRay);					// updates first or second point based on raycast
-	void UpdateDistance();										// updates distance
+	static const int ShiftKeyModifierID = 1;	// identifier for Shift key
+	bool bShiftKeyDown = false;					// flag to track Shift key state
 };
 
 

@@ -12,7 +12,7 @@ purpose:	VoxelWorld - 体素世界管理类层次结构
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "VoxelData.h"
+#include "VoxelMap.h"
 #include "VoxelTerrain.h"
 #include "VoxelWorldBase.generated.h"
 
@@ -59,18 +59,18 @@ public:
 	// ========== 地形访问 ==========
 
 	/**
-	 * 获取地形对象
-	 * @return 地形 Actor，如果未创建则返回 nullptr
+	 * 获取地形管理对象
+	 * @return 地形管理对象，如果未创建则返回 nullptr
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelWorld")
-	AVoxelTerrain* GetTerrain() const { return TerrainActor; }
+	UVoxelTerrain* GetTerrain() const { return TerrainObject; }
 
 	/**
-	 * 创建或获取地形对象
-	 * @return 地形 Actor
+	 * 创建或获取地形管理对象
+	 * @return 地形管理对象
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelWorld")
-	AVoxelTerrain* CreateTerrain();
+	UVoxelTerrain* CreateTerrain();
 
 	// ========== 预制件管理 ==========
 
@@ -110,9 +110,9 @@ public:
 	// 注意：UCVoxelMapManager 不是 UObject，不能使用 UPROPERTY
 	UCVoxelMapManager MapManager;
 
-	/** 地形 Actor（子对象） */
+	/** 地形管理对象 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VoxelWorld")
-	AVoxelTerrain* TerrainActor;
+	UVoxelTerrain* TerrainObject;
 
 	/** 是否在 BeginPlay 时自动创建地形 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VoxelWorld")

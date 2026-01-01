@@ -10,8 +10,10 @@ purpose:	VoxelWorldEditor Maps Widget - 地图管理窗口
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "VoxelData.h"
+#include "VoxelMap.h"
 
+struct UCVoxelMapNodeData;
+class SWindow;
 // 树节点数据结构
 struct FVoxelMapTreeNode
 {
@@ -31,6 +33,7 @@ public:
 	SLATE_BEGIN_ARGS(SVoxelWorldEditorMapsWidget)
 	{}
 	SLATE_ARGUMENT(class AVoxelWorldEditor*, VoxelWorldEditor)
+	SLATE_ARGUMENT(TSharedPtr<SWindow>, ParentWindow)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -57,6 +60,12 @@ private:
 	/** 删除地图 */
 	FReply OnDeleteMapClicked();
 
+	/** 保存按钮 */
+	FReply OnSaveMapClicked();
+
+	/** 关闭按钮 */
+	FReply OnCloseClicked();
+
 	/** 树形控件选择改变 */
 	void OnMapSelectionChanged(TSharedPtr<FVoxelMapTreeNode> SelectedItem, ESelectInfo::Type SelectInfo);
 
@@ -69,6 +78,9 @@ private:
 private:
 	/** VoxelWorldEditor 引用 */
 	TWeakObjectPtr<class AVoxelWorldEditor> VoxelWorldEditor;
+
+	/** 父窗口引用 */
+	TWeakPtr<SWindow> ParentWindow;
 
 	/** 地图列表树形控件 */
 	TSharedPtr<class STreeView<TSharedPtr<FVoxelMapTreeNode>>> MapTreeView;
@@ -87,6 +99,9 @@ private:
 
 	/** 节点展开/折叠状态改变的回调 */
 	void OnExpansionChanged(TSharedPtr<FVoxelMapTreeNode> Item, bool bExpanded);
+
+	/** 获取当前加载的地图文件路径 */
+	FString GetCurrentMapFilePath() const;
 };
 
 

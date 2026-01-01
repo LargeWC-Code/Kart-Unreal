@@ -12,7 +12,7 @@ purpose:	VoxelWorld - 体素世界管理类实现
 
 AVoxelWorldBase::AVoxelWorldBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, TerrainActor(nullptr)
+	, TerrainObject(nullptr)
 	, bAutoCreateTerrain(true)
 	, InitialTerrainSize(64, 64, 64)
 	, VoxelSize(100.0f)
@@ -28,8 +28,8 @@ void AVoxelWorldBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 如果启用自动创建地形，则创建地形对象
-	if (bAutoCreateTerrain && !TerrainActor)
+	// 如果启用自动创建地形，则创建地形管理对象
+	if (bAutoCreateTerrain && !TerrainObject)
 	{
 		CreateTerrain();
 	}
@@ -50,10 +50,16 @@ bool AVoxelWorldBase::LoadMap(const FString& Filename)
 {
 	UCString UCFilename = FStringToUCString(Filename);
 	
-	if (MapManager.LoadFromFile(UCFilename))
+	if (MapManager.LoadMap(UCFilename))
 	{
-		// 加载成功后，可以根据地图数据初始化地形和预制件
-		// TODO: 实现从地图数据加载地形和预制件的逻辑
+		// 加载成功后，从地图数据加载地形
+		if (MapManager.Curr && TerrainObject)
+		{
+			TerrainObject->DeserializeFromMapData(*MapManager.Curr, GetWorld());
+			UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Loaded terrain data from map"));
+		}
+		
+		// TODO: 实现从地图数据加载预制件的逻辑
 		
 		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Successfully loaded map from %s"), *Filename);
 		return true;
@@ -67,40 +73,45 @@ void AVoxelWorldBase::SaveMap(const FString& Filename)
 {
 	UCString UCFilename = FStringToUCString(Filename);
 	
-	MapManager.SaveToFile(UCFilename);
+	// 确保MapManager有当前地图数据
+	if (!MapManager.Curr)
+		return;
+	
+	// 如果存在Terrain，序列化Terrain数据到MapData
+	if (TerrainObject && MapManager.Curr)
+	{
+		TerrainObject->SerializeToMapData(*MapManager.Curr);
+		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Serialized terrain data to map"));
+	}
+	
+	// 保存地图
+	MapManager.SaveMap(UCFilename);
 	
 	UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Saved map to %s"), *Filename);
 }
 
-AVoxelTerrain* AVoxelWorldBase::CreateTerrain()
+UVoxelTerrain* AVoxelWorldBase::CreateTerrain()
 {
-	if (TerrainActor)
+	if (TerrainObject)
 	{
-		return TerrainActor;
+		return TerrainObject;
 	}
 
-	// 创建地形 Actor 作为子对象
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = this;
-	SpawnParams.Instigator = GetInstigator();
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	TerrainActor = GetWorld()->SpawnActor<AVoxelTerrain>(SpawnParams);
-	if (TerrainActor)
+	// 创建地形管理对象
+	TerrainObject = NewObject<UVoxelTerrain>(this);
+	if (TerrainObject)
 	{
 		// 设置地形属性
-		TerrainActor->TerrainSize = InitialTerrainSize;
-		TerrainActor->VoxelSize = VoxelSize;
-		TerrainActor->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		TerrainObject->VoxelSize = VoxelSize;
 		
-		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Created terrain actor"));
+		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Created terrain manager"));
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("VoxelWorld: Failed to create terrain actor"));
+		UE_LOG(LogTemp, Error, TEXT("VoxelWorld: Failed to create terrain manager"));
 	}
 
-	return TerrainActor;
+	return TerrainObject;
 }
 
 int32 AVoxelWorldBase::AddPrefab(const FString& Name, int32 Type)

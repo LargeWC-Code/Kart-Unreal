@@ -27,6 +27,9 @@ public:
 	/** Whether a map is currently loaded (enables Edit tool) */
 	static bool bMapLoaded;
 
+	/** 当前激活的 EditorMode 实例（静态变量） */
+	static UVoxelEditorEditorMode* ActiveInstance;
+
 	UVoxelEditorEditorMode();
 	virtual ~UVoxelEditorEditorMode();
 
@@ -42,6 +45,9 @@ public:
 
 	/** Get map loaded state */
 	static bool IsMapLoaded() { return bMapLoaded; }
+
+	/** 获取当前激活的 EditorMode 实例（静态方法） */
+	static UVoxelEditorEditorMode* GetActiveEditorMode();
 
 	/** 获取 VoxelWorldEditor 实例 */
 	class AVoxelWorldEditor* GetVoxelWorldEditorInstance() const { return VoxelWorldEditorInstance; }

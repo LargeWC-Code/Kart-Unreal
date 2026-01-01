@@ -4,6 +4,10 @@
 
 #include "Toolkits/BaseToolkit.h"
 #include "VoxelEditorEditorMode.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+
+class AVoxelWorldEditor;
 
 /**
  * This FModeToolkit just creates a basic UI panel that allows various InteractiveTools to
@@ -23,45 +27,54 @@ public:
 	virtual FName GetToolkitFName() const override;
 	virtual FText GetBaseToolkitName() const override;
 
-	/** 根据地图尺寸更新Edit分页的网格UI */
+	/** Update the edit tool grid from map dimensions */
 	void UpdateEditToolGridFromMap(int32 MapWidth, int32 MapHeight) const;
 
 private:
-	/** 获取 Maps 工具的 Widget */
-	TSharedPtr<SWidget> GetMapsToolWidget() const;
+	/** 工具包的主 Widget */
+	TSharedPtr<SWidget> ToolkitWidget;
 
-	/** 获取 Edit 工具的 Widget */
-	TSharedPtr<SWidget> GetEditToolWidget() const;
-
-	/** 创建包含 WidgetSwitcher 的主 Widget */
-	TSharedPtr<SWidget> CreateToolContentWidget() const;
-
-	/** 获取当前激活的工具索引 */
-	int32 GetActiveToolIndex() const;
-
-private:
-	/** VoxelWorldEditor 实例 */
-	TWeakObjectPtr<class AVoxelWorldEditor> VoxelWorldEditorInstance;
-
-	/** Owning Editor Mode */
-	TWeakObjectPtr<UEdMode> OwningMode;
-
-	/** 主内容 Widget（包含 WidgetSwitcher） */
+	/** Main content widget */
 	mutable TSharedPtr<SWidget> MainContentWidget;
 
-	/** Edit 工具按钮的激活状态数组（动态大小） */
-	mutable TArray<bool> EditToolButtonStates;
-
-	/** Edit 工具 Widget（缓存以避免重复创建） */
+	/** Edit tool widget */
 	mutable TSharedPtr<SWidget> EditToolWidget;
 
-	/** Edit 工具按钮网格面板（用于触发刷新） */
-	mutable TSharedPtr<class SUniformGridPanel> EditToolGridPanel;
-
-	/** 当前地图尺寸（宽度和高度） */
+	/** Current map dimensions */
 	mutable int32 CurrentMapWidth;
 	mutable int32 CurrentMapHeight;
-
-	/** 是否已加载地图 */
 	mutable bool bMapLoaded;
+
+	/** Edit tool button states */
+	mutable TArray<bool> EditToolButtonStates;
+
+	/** Owning editor mode */
+	TWeakObjectPtr<UEdMode> OwningMode;
+
+	/** VoxelWorldEditor instance */
+	TWeakObjectPtr<AVoxelWorldEditor> VoxelWorldEditorInstance;
+
+	/** Edit tool grid panel */
+	mutable TSharedPtr<SUniformGridPanel> EditToolGridPanel;
+
+	/** Create the tool content widget */
+	TSharedPtr<SWidget> CreateToolContentWidget() const;
+
+	/** Get the active tool index */
+	int32 GetActiveToolIndex() const;
+
+	/** Get the maps tool widget */
+	TSharedPtr<SWidget> GetMapsToolWidget() const;
+
+	/** Get the edit tool widget */
+	TSharedPtr<SWidget> GetEditToolWidget() const;
+
+	/** Apply the edit volume (finds and applies the first available volume) */
+	void ApplyEditVolume() const;
+
+	/** Clear the edit volume region (sets voxels to type 0) */
+	void ClearEditVolume() const;
+
+	/** Clear the current tile (the tile containing the edit volume) */
+	void ClearCurrentTile() const;
 };

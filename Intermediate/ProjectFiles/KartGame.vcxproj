@@ -532,9 +532,14 @@
     <ClCompile_ForcedIncludeFiles_3>$(ProjectForcedIncludeFiles);$(SolutionDir)Intermediate\Build\Win64\x64\UnrealEditor\Development\KartGame\Definitions.KartGame.h</ClCompile_ForcedIncludeFiles_3>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelEditVolume.cpp" />
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelTile.cpp" />
     <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorEditTool.cpp" />
     <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.cpp" />
     <ClCompile Include="..\..\Source\KartGame\VoxelWorld\VoxelWorldGame.cpp" />
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelData.h" />
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelEditVolume.h" />
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelTile.h" />
     <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorEditTool.h" />
     <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\Tools\VoxelEditorMapsTool.h" />
     <ClInclude Include="..\..\Source\KartGame\VoxelWorld\VoxelWorldGame.h" />
@@ -651,7 +656,7 @@
       <AdditionalIncludeDirectories>$(ClCompile_AdditionalIncludeDirectories_1)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>$(ClCompile_ForcedIncludeFiles_1)</ForcedIncludeFiles>
     </ClCompile>
-    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelData.cpp">
+    <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelMap.cpp">
       <AdditionalIncludeDirectories>$(ClCompile_AdditionalIncludeDirectories_1)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>$(ClCompile_ForcedIncludeFiles_1)</ForcedIncludeFiles>
     </ClCompile>
@@ -660,7 +665,7 @@
       <ForcedIncludeFiles>$(ClCompile_ForcedIncludeFiles_1)</ForcedIncludeFiles>
     </ClCompile>
     <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelCore.h" />
-    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelData.h" />
+    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelMap.h" />
     <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelTerrain.h" />
     <None Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\VoxelEditor.Build.cs" />
     <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelWorldBase.cpp" />
