@@ -21,7 +21,7 @@ SCRIPT_IMPLEMENT_BEGIN(UCE_UCVoxelTileData, UCVoxelTileData)
 	SCRIPT_CONSTRUCT_1(ucCONST UCE_UCVoxelTileData&)
 	SCRIPT_PROPERTY(UCE_INT, TileX)
 	SCRIPT_PROPERTY(UCE_INT, TileY)
-	SCRIPT_PROPERTY(UCE_UCEArray, AryVoxels)
+	SCRIPT_PROPERTY(UCE_UCIntArray, AryVoxels)
 	SCRIPT_DECONSTRUCT();
 SCRIPT_IMPLEMENT_END(UCE_UCVoxelTileData)
 
@@ -68,14 +68,13 @@ UCVoxelData::~UCVoxelData()
 UCVoxelTileData::UCVoxelTileData() 
 	: TileX(0)
 	, TileY(0)
-	, _AryVoxels(UCEVariableInfoCC(&UCE_UCVoxelData::I))
 {
 }
 
 UCVoxelTileData::UCVoxelTileData(ucCONST UCVoxelTileData& in)
 	: TileX(in.TileX)
 	, TileY(in.TileY)
-	, _AryVoxels(in._AryVoxels)
+	, AryVoxels(in.AryVoxels)
 {
 }
 
@@ -83,13 +82,12 @@ UCVoxelTileData& UCVoxelTileData::operator =(ucCONST UCVoxelTileData& in)
 {
 	TileX = in.TileX;
 	TileY = in.TileY;
-	_AryVoxels = in._AryVoxels;
+	AryVoxels = in.AryVoxels;
 	return *this;
 }
 
 UCVoxelTileData::~UCVoxelTileData()
 {
-	_AryVoxels.~_UCEArray();
 }
 
 UCVoxelMapData::UCVoxelMapData()

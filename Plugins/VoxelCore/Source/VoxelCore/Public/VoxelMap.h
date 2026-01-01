@@ -13,7 +13,7 @@ SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelPrefabData, UCVoxelPrefabData, ucTRUE);
 
 enum UCVoxelData_Layer
 {
-	UCVoxelData_Layer_Null = -1,
+	UCVoxelData_Layer_Null = 0xFF,
 	UCVoxelData_Layer_Ground = 0,
 	UCVoxelData_Layer_Water
 };
@@ -21,8 +21,16 @@ enum UCVoxelData_Layer
 // Tile 数据：存储一个 Tile 的坐标和体素数据
 struct VOXELCORE_API UCVoxelData
 {
-	ucINT			Type;
-	ucINT			Layer;
+	union
+	{
+		struct
+		{
+			ucBYTE			Type;
+			ucBYTE			Layer;
+		};
+
+		ucDWORD				Data;
+	};
 
 	UCVoxelData();
 	UCVoxelData(ucCONST UCVoxelData&);
@@ -38,11 +46,8 @@ struct VOXELCORE_API UCVoxelTileData
 {
 	ucINT			TileX;			// Tile 坐标 X
 	ucINT			TileY;			// Tile 坐标 Y
-	union
-	{
-		UCEArray<UCVoxelData>			AryVoxels;		// 体素数组：32*32*64 = 65536 个字节
-		_UCEArray						_AryVoxels;		// 体素数组：32*32*64 = 65536 个字节
-	};
+
+	UCIntArray		AryVoxels;
 
 	UCVoxelTileData();
 	UCVoxelTileData(ucCONST UCVoxelTileData&);
