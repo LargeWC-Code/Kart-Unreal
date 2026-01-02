@@ -77,10 +77,11 @@ const FVector AVoxelTile::FaceVertices[6][4] = {
 
 AVoxelTile::AVoxelTile(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bIsActive(false)
 	, TileCoord(0, 0)
 	, VoxelSize(100.0f)
 	, Material(nullptr)
-	, bIsActive(false)
+	, TileData(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -95,13 +96,6 @@ AVoxelTile::AVoxelTile(const FObjectInitializer& ObjectInitializer)
 void AVoxelTile::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	// 如果已激活，初始化数据
-	if (bIsActive)
-	{
-		InitializeTile();
-		UpdateMesh();
-	}
 }
 
 void AVoxelTile::Tick(float DeltaTime)
@@ -109,23 +103,29 @@ void AVoxelTile::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-void AVoxelTile::InitializeTile()
-{
-	int32 TotalVoxels = TileSizeX * TileSizeY * TileSizeZ;
-	VoxelData.SetNum(TotalVoxels);
-	
-	// 初始化为空
-	for (int32 i = 0; i < TotalVoxels; ++i)
-	{
-		VoxelData[i] = FVoxelData(0, 0);
-	}
-}
-
 bool AVoxelTile::IsValidVoxelCoord(int32 X, int32 Y, int32 Z) const
 {
+	if (TileData == nullptr)
+		return false;
+
+	int32 index = VoxelCoordToIndex(X, Y, Z);
+	if (index < 0 || index >= TileData->AryVoxels.GetSize())
+		return false;
+
 	return X >= 0 && X < TileSizeX &&
 		   Y >= 0 && Y < TileSizeY &&
 		   Z >= 0 && Z < TileSizeZ;
+}
+
+bool AVoxelTile::IsVoxelEmpty(int32 X, int32 Y, int32 Z) const
+{
+	// 如果坐标超出边界，视为空（用于边界面的渲染）
+	if (!IsValidVoxelCoord(X, Y, Z))
+		return true;
+
+	// 检查体素的Layer是否为Null
+	UCVoxelData Voxel = GetVoxel(X, Y, Z);
+	return Voxel.Layer == UCVoxelData_Layer_Null;
 }
 
 int32 AVoxelTile::VoxelCoordToIndex(int32 X, int32 Y, int32 Z) const
@@ -133,106 +133,47 @@ int32 AVoxelTile::VoxelCoordToIndex(int32 X, int32 Y, int32 Z) const
 	return Z * TileSizeY * TileSizeX + Y * TileSizeX + X;
 }
 
-bool AVoxelTile::IsVoxelEmpty(int32 X, int32 Y, int32 Z) const
-{
-	if (!IsValidVoxelCoord(X, Y, Z))
-		return true; // 边界外视为空
-	
-	// 如果 VoxelData 未初始化，视为空
-	if (VoxelData.Num() == 0)
-		return true;
-	
-	int32 Index = VoxelCoordToIndex(X, Y, Z);
-	if (Index >= VoxelData.Num())
-		return true;
-	
-	return VoxelData[Index].IsEmpty();
-}
-
 void AVoxelTile::SetVoxel(int32 X, int32 Y, int32 Z, uint8 Type, uint8 Layer, bool bUpdateMesh)
 {
+	if (!bIsActive)
+		return;
 	if (!IsValidVoxelCoord(X, Y, Z))
 		return;
 
-	// 如果 VoxelData 未初始化，先初始化
-	if (VoxelData.Num() == 0)
-	{
-		InitializeTile();
-	}
-
 	int32 Index = VoxelCoordToIndex(X, Y, Z);
-	if (Index >= VoxelData.Num())
-		return;
 
-	VoxelData[Index] = FVoxelData(Type, Layer);
+	UCVoxelData VoxelData;
+	VoxelData.Type = Type;
+	VoxelData.Layer = Layer;
+	TileData->AryVoxels[Index] = VoxelData.Data;
 
 	if (bUpdateMesh)
-		UpdateMesh();
+		UpdateMesh(true);
 }
 
-FVoxelData AVoxelTile::GetVoxel(int32 X, int32 Y, int32 Z) const
+UCVoxelData AVoxelTile::GetVoxel(int32 X, int32 Y, int32 Z) const
 {
+	if (!bIsActive)
+		return UCVoxelData();
 	if (!IsValidVoxelCoord(X, Y, Z))
-		return FVoxelData(0, 0);
-
-	// 如果 VoxelData 未初始化，返回空体素
-	if (VoxelData.Num() == 0)
-		return FVoxelData(0, 0);
+		return UCVoxelData();
 
 	int32 Index = VoxelCoordToIndex(X, Y, Z);
-	if (Index >= VoxelData.Num())
-		return FVoxelData(0, 0);
 
-	return VoxelData[Index];
-}
-
-void AVoxelTile::FillRegion(const FIntVector& MinPos, const FIntVector& MaxPos, uint8 Type, uint8 Layer, bool bUpdateMesh)
-{
-	for (int32 X = MinPos.X; X <= MaxPos.X; ++X)
-	{
-		for (int32 Y = MinPos.Y; Y <= MaxPos.Y; ++Y)
-		{
-			for (int32 Z = MinPos.Z; Z <= MaxPos.Z; ++Z)
-			{
-				SetVoxel(X, Y, Z, Type, Layer, false);
-			}
-		}
-	}
-
-	if (bUpdateMesh)
-		UpdateMesh();
+	UCVoxelData VoxelData;
+	VoxelData.Data = TileData->AryVoxels[Index];
+	return VoxelData;
 }
 
 void AVoxelTile::SetActive(bool bActive)
 {
 	bIsActive = bActive;
 	
-	if (bActive)
-	{
-		// 激活时初始化 VoxelData 内存
-		if (VoxelData.Num() == 0)
-		{
-			InitializeTile();
-		}
-		
-		// 更新网格
-		UpdateMesh();
-	}
-	else
-	{
-		// 取消激活时可以释放内存（可选）
-		// VoxelData.Empty();
-	}
-	
-	// 激活/取消激活时更新可见性
-	if (ProceduralMesh)
-	{
-		ProceduralMesh->SetVisibility(bActive);
-		ProceduralMesh->SetCollisionEnabled(bActive ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
-	}
+	// 更新网格
+	UpdateMesh(bIsActive);
 }
 
-void AVoxelTile::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const FVoxelData& Voxel)
+void AVoxelTile::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel)
 {
 	if (FaceIndex < 0 || FaceIndex >= 6)
 		return;
@@ -301,7 +242,7 @@ void AVoxelTile::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const FVoxe
 	Triangles.Add(BaseIndex + 2);
 }
 
-void AVoxelTile::BuildMeshData()
+void AVoxelTile::ClearMeshData()
 {
 	// 清空之前的网格数据
 	Vertices.Empty();
@@ -310,7 +251,10 @@ void AVoxelTile::BuildMeshData()
 	UVs.Empty();
 	VertexColors.Empty();
 	Tangents.Empty();
+}
 
+void AVoxelTile::BuildMeshData()
+{
 	// 遍历所有体素，为每个可见面生成几何体
 	for (int32 X = 0; X < TileSizeX; ++X)
 	{
@@ -318,8 +262,8 @@ void AVoxelTile::BuildMeshData()
 		{
 			for (int32 Z = 0; Z < TileSizeZ; ++Z)
 			{
-				FVoxelData Voxel = GetVoxel(X, Y, Z);
-				if (Voxel.IsEmpty())
+				UCVoxelData Voxel = GetVoxel(X, Y, Z);
+				if (Voxel.Layer == UCVoxelData_Layer_Null)
 					continue;
 
 				// 检查六个面，渲染外表面（如果相邻体素为空或者是边界）
@@ -341,17 +285,17 @@ void AVoxelTile::BuildMeshData()
 	}
 }
 
-void AVoxelTile::UpdateMesh()
+void AVoxelTile::UpdateMesh(bool Active)
 {
-	// 构建网格数据
-	BuildMeshData();
-
-	// 如果没有顶点，创建空网格
-	if (Vertices.Num() == 0)
+	ClearMeshData();
+	if (!Active)
 	{
 		ProceduralMesh->ClearMeshSection(0);
 		return;
 	}
+
+	// 构建网格数据
+	BuildMeshData();
 
 	// 更新程序化网格组件
 	ProceduralMesh->CreateMeshSection(
@@ -540,8 +484,8 @@ bool AVoxelTile::Intersect(const FVector& RayOrigin, const FVector& RayDirection
 		int32 StorageZ = VoxelZ + HalfTileSizeZ;
 		
 		// 检查体素是否非空
-		FVoxelData Voxel = GetVoxel(StorageX, StorageY, StorageZ);
-		if (!Voxel.IsEmpty())
+		UCVoxelData Voxel = GetVoxel(StorageX, StorageY, StorageZ);
+		if (Voxel.Layer != UCVoxelData_Layer_Null)
 		{
 			// 找到非空体素，使用AABB检测计算精确的hit距离
 			FVector VoxelLocalMin = FVector(VoxelX * VoxelSize, VoxelY * VoxelSize, VoxelZ * VoxelSize);

@@ -343,10 +343,10 @@ FReply SVoxelWorldEditorMapsWidget::OnCreateMapClicked()
 	TSharedPtr<SComboBox<TSharedPtr<int32>>> WidthComboBox;
 	TSharedPtr<SComboBox<TSharedPtr<int32>>> HeightComboBox;
 	
-	// 初始化下拉框选项（1、2、4、8、16）
+	// 初始化下拉框选项（1、3、5、9、17）
 	WidthOptions = MakeShareable(new TArray<TSharedPtr<int32>>);
 	HeightOptions = MakeShareable(new TArray<TSharedPtr<int32>>);
-	for (int32 Size : {1, 2, 4, 8, 16})
+	for (int32 Size : {1, 3, 5, 9, 17})
 	{
 		WidthOptions->Add(MakeShareable(new int32(Size)));
 		HeightOptions->Add(MakeShareable(new int32(Size)));
@@ -855,6 +855,248 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 			FMessageDialog::Open(EAppMsgType::Ok,
 				NSLOCTEXT("VoxelEditor", "LoadMapError", "加载地图失败！"));
 		}
+	}
+	else
+	{
+		// 文件不存在，显示创建对话框
+		TSharedPtr<TArray<TSharedPtr<int32>>> WidthOptions;
+		TSharedPtr<TArray<TSharedPtr<int32>>> HeightOptions;
+		TSharedPtr<int32> SelectedWidth;
+		TSharedPtr<int32> SelectedHeight;
+		TSharedPtr<SComboBox<TSharedPtr<int32>>> WidthComboBox;
+		TSharedPtr<SComboBox<TSharedPtr<int32>>> HeightComboBox;
+		
+		// 初始化下拉框选项（1、3、5、9、17）
+		WidthOptions = MakeShareable(new TArray<TSharedPtr<int32>>);
+		HeightOptions = MakeShareable(new TArray<TSharedPtr<int32>>);
+		for (int32 Size : {1, 3, 5, 9, 17})
+		{
+			WidthOptions->Add(MakeShareable(new int32(Size)));
+			HeightOptions->Add(MakeShareable(new int32(Size)));
+		}
+		SelectedWidth = WidthOptions->Last(); // 默认16
+		SelectedHeight = HeightOptions->Last(); // 默认16
+		
+		// 先创建窗口指针，然后可以在 Lambda 中捕获
+		TSharedPtr<SWindow> WindowPtr;
+		TSharedRef<SWindow> Window = SNew(SWindow)
+			.Title(NSLOCTEXT("VoxelEditor", "CreateMissingMapDialogTitle", "创建缺失的地图文件"))
+			.ClientSize(FVector2D(400, 280))
+			.SizingRule(ESizingRule::UserSized)
+			.SupportsMinimize(false)
+			.SupportsMaximize(false)
+			[
+				SNew(SVerticalBox)
+				
+				// 提示文本
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(10, 10, 10, 5)
+				[
+					SNew(STextBlock)
+					.Text(FText::Format(NSLOCTEXT("VoxelEditor", "MissingMapFileMessage", "地图文件 \"{0}\" 不存在，请创建新地图文件。"), FText::FromString(MapName)))
+					.AutoWrapText(true)
+				]
+				
+				// 地图名称（只读显示）
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(10, 10, 10, 5)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("VoxelEditor", "MapNameLabel", "名称:"))
+				]
+				
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(10, 0, 10, 5)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(MapName))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+				
+				// 地图尺寸（宽度）
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(10, 5, 10, 5)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.Padding(0, 0, 10, 0)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("VoxelEditor", "MapWidthLabel", "宽度:"))
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						SAssignNew(WidthComboBox, SComboBox<TSharedPtr<int32>>)
+						.OptionsSource(WidthOptions.Get())
+						.OnGenerateWidget_Lambda([](TSharedPtr<int32> InOption)
+						{
+							return SNew(STextBlock).Text(FText::AsNumber(*InOption));
+						})
+						.OnSelectionChanged_Lambda([&SelectedWidth](TSharedPtr<int32> NewSelection, ESelectInfo::Type)
+						{
+							if (NewSelection.IsValid())
+							{
+								SelectedWidth = NewSelection;
+							}
+						})
+						[
+							SNew(STextBlock)
+							.Text_Lambda([&SelectedWidth]()
+							{
+								return FText::AsNumber(SelectedWidth.IsValid() ? *SelectedWidth : 16);
+							})
+						]
+					]
+				]
+				
+				// 地图尺寸（高度）
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(10, 5, 10, 10)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.Padding(0, 0, 10, 0)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("VoxelEditor", "MapHeightLabel", "高度:"))
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						SAssignNew(HeightComboBox, SComboBox<TSharedPtr<int32>>)
+						.OptionsSource(HeightOptions.Get())
+						.OnGenerateWidget_Lambda([](TSharedPtr<int32> InOption)
+						{
+							return SNew(STextBlock).Text(FText::AsNumber(*InOption));
+						})
+						.OnSelectionChanged_Lambda([&SelectedHeight](TSharedPtr<int32> NewSelection, ESelectInfo::Type)
+						{
+							if (NewSelection.IsValid())
+							{
+								SelectedHeight = NewSelection;
+							}
+						})
+						[
+							SNew(STextBlock)
+							.Text_Lambda([&SelectedHeight]()
+							{
+								return FText::AsNumber(SelectedHeight.IsValid() ? *SelectedHeight : 16);
+							})
+						]
+					]
+				]
+				
+				// 按钮栏
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(10, 0, 10, 10)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SHorizontalBox)
+					
+					// 确定按钮
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0, 0, 5, 0)
+					[
+						SNew(SButton)
+						.Text(NSLOCTEXT("VoxelEditor", "OK", "确定"))
+						.OnClicked_Lambda([&WindowPtr, &SelectedWidth, &SelectedHeight, WorldEditor, MapFile, MapsDir, NodePath, MapName, Item, this]()
+						{
+							// 获取地图尺寸
+							int32 MapWidth = SelectedWidth.IsValid() ? *SelectedWidth : 16;
+							int32 MapHeight = SelectedHeight.IsValid() ? *SelectedHeight : 16;
+							
+							// 创建新地图
+							WorldEditor->GetMapManager().NewCurrentMap(UCSize(MapWidth, MapHeight));
+							
+							// 递归创建目录
+							IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+							PlatformFile.CreateDirectoryTree(*MapsDir);
+							
+							// 保存地图文件
+							UCString UCMapFile = UCString(*MapFile);
+							WorldEditor->GetMapManager().SaveMap(UCMapFile);
+							
+							// 加载地图
+							if (WorldEditor->GetMapManager().LoadMap(UCMapFile))
+							{
+								// 保存当前地图文件路径
+								WorldEditor->SetCurrentMapFilePath(MapFile);
+								
+								UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Created and loaded map: %s"), *MapFile);
+								
+								// 获取当前地图的尺寸
+								UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+								if (MapManager.Curr)
+								{
+									UCSize MapSize = MapManager.Curr->Size;
+									int32 LoadedMapWidth = MapSize.cx;
+									int32 LoadedMapHeight = MapSize.cy;
+									
+									UE_LOG(LogTemp, Log, TEXT("VoxelWorldEditor: Map size: %dx%d"), LoadedMapWidth, LoadedMapHeight);
+									
+									// 更新Edit分页的UI
+									UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();
+									if (VoxelMode)
+									{
+										TSharedPtr<FVoxelEditorEditorModeToolkit> Toolkit = VoxelMode->GetToolkit();
+										if (Toolkit.IsValid())
+										{
+											Toolkit->UpdateEditToolGridFromMap(LoadedMapWidth, LoadedMapHeight);
+										}
+									}
+								}
+							}
+							else
+							{
+								FMessageDialog::Open(EAppMsgType::Ok,
+									NSLOCTEXT("VoxelEditor", "CreateMapError", "创建地图失败！"));
+							}
+							
+							// 使用 FSlateApplication 安全地关闭窗口
+							if (WindowPtr.IsValid())
+							{
+								FSlateApplication::Get().RequestDestroyWindow(WindowPtr.ToSharedRef());
+							}
+							return FReply::Handled();
+						})
+					]
+					
+					// 取消按钮
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.Text(NSLOCTEXT("VoxelEditor", "Cancel", "取消"))
+						.OnClicked_Lambda([&WindowPtr]()
+						{
+							// 使用 FSlateApplication 安全地关闭窗口
+							if (WindowPtr.IsValid())
+							{
+								FSlateApplication::Get().RequestDestroyWindow(WindowPtr.ToSharedRef());
+							}
+							return FReply::Handled();
+						})
+					]
+				]
+			];
+		
+		// 将 Window 赋值给 WindowPtr，以便 Lambda 中可以使用
+		WindowPtr = Window;
+		
+		// 显示对话框
+		FSlateApplication::Get().AddModalWindow(Window, FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr));
 	}
 }
 

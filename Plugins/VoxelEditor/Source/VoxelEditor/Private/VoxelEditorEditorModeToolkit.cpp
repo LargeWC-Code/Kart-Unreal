@@ -343,16 +343,16 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 	// 创建按钮
 	const float ButtonSize = 50.0f;
 	
-		for (int32 Row = 0; Row < MapHeight; ++Row)
+	for (int32 Row = 0; Row < MapHeight; ++Row)
+	{
+		for (int32 Col = 0; Col < MapWidth; ++Col)
 		{
-			for (int32 Col = 0; Col < MapWidth; ++Col)
-			{
-				int32 ButtonIndex = Row * MapWidth + Col;
-				// 计算坐标：中心为(0,0)
-				// X坐标：从-(MapWidth-1)/2 到 (MapWidth-1)/2
-				// Y坐标：从-(MapHeight-1)/2 到 (MapHeight-1)/2（Y轴反转，顶部为正）
-				int32 X = Col - (MapWidth - 1) / 2;
-				int32 Y = (MapHeight - 1) / 2 - Row; // Y轴反转，使顶部为正
+			int32 ButtonIndex = Row * MapWidth + Col;
+			// 计算坐标：中心为(0,0)
+			// X坐标：从-(MapWidth-1)/2 到 (MapWidth-1)/2
+			// Y坐标：从-(MapHeight-1)/2 到 (MapHeight-1)/2（Y轴反转，顶部为正）
+			int32 X = Col - (MapWidth - 1) / 2;
+			int32 Y = (MapHeight - 1) / 2 - Row; // Y轴反转，使顶部为正
 			
 			// 创建坐标文本
 			FString CoordText = FString::Printf(TEXT("%d,%d"), X, Y);

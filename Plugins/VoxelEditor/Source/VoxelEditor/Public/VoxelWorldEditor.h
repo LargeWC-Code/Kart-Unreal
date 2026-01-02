@@ -10,7 +10,6 @@ purpose:	AVoxelWorldEditor - 编辑器专用体素世界类
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "VoxelWorldBase.h"
-#include "VoxelData.h"
 #include "VoxelWorldEditor.generated.h"
 
 /**

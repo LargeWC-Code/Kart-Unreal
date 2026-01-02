@@ -10,7 +10,7 @@ purpose:	VoxelTile - 体素地块Actor，每个地块包含32*32*64的单元格
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ProceduralMeshComponent.h"
-#include "VoxelData.h"
+#include "VoxelMap.h"
 #include "VoxelTile.generated.h"
 
 /**
@@ -28,6 +28,9 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
+
+	/** 是否激活 */
+	bool bIsActive;
 
 	/** 地块尺寸（固定为32*32*64） */
 	static constexpr int32 TileSizeX = 32;
@@ -49,7 +52,6 @@ public:
 	 * @param Layer 体素层
 	 * @param bUpdateMesh 是否立即更新网格
 	 */
-	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
 	void SetVoxel(int32 X, int32 Y, int32 Z, uint8 Type, uint8 Layer = 0, bool bUpdateMesh = true);
 
 	/**
@@ -57,25 +59,12 @@ public:
 	 * @param X, Y, Z 体素坐标（相对于地块）
 	 * @return 体素数据，如果坐标无效返回空体素
 	 */
-	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
-	FVoxelData GetVoxel(int32 X, int32 Y, int32 Z) const;
-
-	/**
-	 * 填充区域
-	 * @param MinPos 最小位置（相对于地块）
-	 * @param MaxPos 最大位置（相对于地块）
-	 * @param Type 体素类型
-	 * @param Layer 体素层
-	 * @param bUpdateMesh 是否立即更新网格
-	 */
-	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
-	void FillRegion(const FIntVector& MinPos, const FIntVector& MaxPos, uint8 Type, uint8 Layer = 0, bool bUpdateMesh = true);
+	UCVoxelData GetVoxel(int32 X, int32 Y, int32 Z) const;
 
 	/**
 	 * 更新网格渲染（重建所有可见面）
 	 */
-	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
-	void UpdateMesh();
+	void UpdateMesh(bool Active);
 
 	/**
 	 * 激活/取消激活地块
@@ -121,23 +110,21 @@ public:
 private:
 	// ========== 内部方法 ==========
 
-	/** 初始化地块数据 */
-	void InitializeTile();
-
 	/** 检查体素坐标是否有效 */
 	bool IsValidVoxelCoord(int32 X, int32 Y, int32 Z) const;
+
+	/** 检查体素是否为空（坐标超出边界或Layer为Null） */
+	bool IsVoxelEmpty(int32 X, int32 Y, int32 Z) const;
 
 	/** 将体素坐标转换为数组索引 */
 	int32 VoxelCoordToIndex(int32 X, int32 Y, int32 Z) const;
 
-	/** 检查指定位置的体素是否为空（包括边界检查） */
-	bool IsVoxelEmpty(int32 X, int32 Y, int32 Z) const;
-
+	void ClearMeshData();
 	/** 构建网格数据 */
 	void BuildMeshData();
 
 	/** 为指定面添加顶点 */
-	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const FVoxelData& Voxel);
+	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel);
 
 	// 六个面的方向向量（从VoxelTerrain复制）
 	static const FIntVector FaceDirections[6];
@@ -154,10 +141,7 @@ private:
 	// ========== 数据 ==========
 
 	/** 体素数据数组（线性存储：Index = Z * SizeY * SizeX + Y * SizeX + X） */
-	TArray<FVoxelData> VoxelData;
-
-	/** 是否激活 */
-	bool bIsActive;
+	UCVoxelTileData*	TileData;
 
 	/** 网格重建时使用的临时数据 */
 	TArray<FVector> Vertices;

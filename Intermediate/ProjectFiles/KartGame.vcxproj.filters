@@ -423,11 +423,11 @@
     <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelTile.h">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelData.h">
-      <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Public\VoxelEditVolume.h">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Public\VoxelWorldEditorMapsWidget.h">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Public</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -451,6 +451,9 @@
     </ClCompile>
     <ClCompile Include="..\..\Plugins\VoxelCore\Source\VoxelCore\Private\VoxelEditVolume.cpp">
       <Filter>Plugins\VoxelCore\Source\VoxelCore\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Plugins\VoxelEditor\Source\VoxelEditor\Private\VoxelWorldEditorMapsWidget.cpp">
+      <Filter>Plugins\VoxelEditor\Source\VoxelEditor\Private</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

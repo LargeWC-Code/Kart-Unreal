@@ -214,10 +214,8 @@ void UVoxelTerrain::FillRegion(const FVector& Min, const FVector& Max, uint8 Vox
 		{
 			// 获取或创建地块
 			AVoxelTile* Tile = GetTile(TileX, TileY, World, true);
-			if (!Tile)
-			{
+			if (!Tile || !Tile->bIsActive)
 				continue;
-			}
 
 			// 获取 Tile 的世界位置
 			FVector TileWorldPos = GetTileWorldPosition(TileX, TileY);
@@ -265,7 +263,7 @@ void UVoxelTerrain::FillRegion(const FVector& Min, const FVector& Max, uint8 Vox
 			}
 
 			// 更新网格
-			Tile->UpdateMesh();
+			Tile->UpdateMesh(true);
 		}
 	}
 
@@ -506,7 +504,7 @@ void UVoxelTerrain::SerializeToMapData(UCVoxelMapData& MapData) const
 		TileData.TileY = TileKey.Y;
 		
 		// 清空数组
-		TileData._AryVoxels.RemoveAll();
+		TileData.AryVoxels.RemoveAll();
 		
 		// Tile尺寸
 		const int32 TileSizeX = AVoxelTile::TileSizeX;
@@ -521,10 +519,10 @@ void UVoxelTerrain::SerializeToMapData(UCVoxelMapData& MapData) const
 			{
 				for (int32 X = 0; X < TileSizeX; ++X)
 				{
-					FVoxelData Voxel = Tile->GetVoxel(X, Y, Z);
+					UCVoxelData Voxel = Tile->GetVoxel(X, Y, Z);
 					
 					// 添加Type和Layer到数组
-					TileData._AryVoxels.Add((_UCEArray::TValue&)Voxel);
+					TileData.AryVoxels.Add(Voxel.Data);
 				}
 			}
 		}
@@ -561,7 +559,7 @@ void UVoxelTerrain::DeserializeFromMapData(const UCVoxelMapData& MapData, UWorld
 		const int32 TotalVoxels = TileSizeX * TileSizeY * TileSizeZ;
 		
 		// 检查数据大小
-		if (TileData._AryVoxels.GetSize() != TotalVoxels)
+		if (TileData.AryVoxels.GetSize() != TotalVoxels)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::DeserializeFromMapData: Tile data size mismatch for Tile(%d,%d)"), 
 				TileData.TileX, TileData.TileY);
@@ -577,7 +575,8 @@ void UVoxelTerrain::DeserializeFromMapData(const UCVoxelMapData& MapData, UWorld
 				for (int32 X = 0; X < TileSizeX; ++X)
 				{
 					// 获取Type和Layer
-					const UCVoxelData& Type = (UCVoxelData&)TileData._AryVoxels.GetAt(VoxelIndex);
+					UCVoxelData Type;
+					Type.Data = TileData.AryVoxels.GetAt(VoxelIndex);
 					
 					// 设置体素（不立即更新网格，最后统一更新）
 					Tile->SetVoxel(X, Y, Z, Type.Type, Type.Layer, false);
@@ -588,7 +587,7 @@ void UVoxelTerrain::DeserializeFromMapData(const UCVoxelMapData& MapData, UWorld
 		}
 		
 		// 更新网格
-		Tile->UpdateMesh();
+		Tile->UpdateMesh(true);
 		
 		// 激活Tile
 		FIntPoint TileKey = GetTileKey(TileData.TileX, TileData.TileY);
