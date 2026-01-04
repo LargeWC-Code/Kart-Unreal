@@ -1,0 +1,101 @@
+// Voxel Terrain Material Function
+// 用于混合PBR材质和顶点颜色（支持Ambient Occlusion）
+// 在Material Editor的Custom Material Expression节点中使用
+
+// ============================================
+// 最简单版本：直接使用顶点色作为AO
+// ============================================
+// 代码：
+//   return BaseColor * VertexColor;
+//
+// 输入：
+//   BaseColor (Vector3) - 基础颜色
+//   VertexColor (Vector3) - 顶点颜色
+//
+// 输出：Float3
+// ============================================
+
+// ============================================
+// 完整版本：PBR + 顶点色混合
+// ============================================
+
+// 输入参数:
+// BaseColor: PBR基础颜色纹理 (float3)
+// Metallic: PBR金属度 (float, 0-1)
+// Roughness: PBR粗糙度 (float, 0-1)
+// VertexColor: 顶点颜色，用于AO和色调调整 (float3)
+// AOMultiplier: AO强度乘数 (float, 默认1.0)
+
+// 输出:
+// FinalBaseColor: 最终基础颜色 (float3)
+// FinalMetallic: 最终金属度 (float)
+// FinalRoughness: 最终粗糙度 (float)
+
+// 使用方法:
+// 1. 在Material Editor中创建一个Custom Material Expression节点
+// 2. 将以下代码粘贴到Code字段
+// 3. 添加输入:
+//    - BaseColor (MaterialFloat3)
+//    - Metallic (MaterialFloat)
+//    - Roughness (MaterialFloat)
+//    - VertexColor (MaterialFloat3, 从Vertex Color节点获取)
+//    - AOMultiplier (MaterialFloat, 可选，默认1.0)
+// 4. 添加输出:
+//    - FinalBaseColor (MaterialFloat3)
+//    - FinalMetallic (MaterialFloat)
+//    - FinalRoughness (MaterialFloat)
+
+void VoxelTerrainPBRVertexColorBlend(
+    MaterialFloat3 BaseColor,
+    MaterialFloat Metallic,
+    MaterialFloat Roughness,
+    MaterialFloat3 VertexColor,
+    MaterialFloat AOMultiplier,
+    out MaterialFloat3 FinalBaseColor,
+    out MaterialFloat MetallicOut,
+    out MaterialFloat RoughnessOut
+)
+{
+    // 将顶点颜色转换为线性空间（假设输入是sRGB）
+    MaterialFloat3 LinearVertexColor = pow(VertexColor, 2.2);
+    
+    // 使用顶点颜色作为AO和色调调整
+    // VertexColor的RGB值可以用来调整亮度和颜色
+    // 通常顶点颜色的亮度表示AO强度
+    
+    // 计算AO因子（使用顶点颜色的平均亮度）
+    MaterialFloat AOFactor = dot(LinearVertexColor, MaterialFloat3(0.299, 0.587, 0.114)); // 亮度加权平均
+    AOFactor = lerp(0.3, 1.0, AOFactor * AOMultiplier); // AO范围：0.3-1.0（可调整）
+    
+    // 应用AO到基础颜色
+    FinalBaseColor = BaseColor * AOFactor;
+    
+    // 可选：使用顶点颜色的色调来微调颜色
+    // FinalBaseColor = BaseColor * AOFactor * lerp(MaterialFloat3(1,1,1), LinearVertexColor, 0.2);
+    
+    // 金属度和粗糙度不受顶点颜色影响（或者可以根据需要调整）
+    MetallicOut = Metallic;
+    RoughnessOut = Roughness;
+}
+
+// 简化版本（仅AO，无色调调整）
+void VoxelTerrainPBRVertexColorAO(
+    MaterialFloat3 BaseColor,
+    MaterialFloat Metallic,
+    MaterialFloat Roughness,
+    MaterialFloat3 VertexColor,
+    out MaterialFloat3 FinalBaseColor,
+    out MaterialFloat MetallicOut,
+    out MaterialFloat RoughnessOut
+)
+{
+    // 计算AO因子
+    MaterialFloat AOFactor = dot(VertexColor, MaterialFloat3(0.299, 0.587, 0.114));
+    AOFactor = lerp(0.4, 1.0, AOFactor); // AO范围：0.4-1.0
+    
+    // 应用AO
+    FinalBaseColor = BaseColor * AOFactor;
+    MetallicOut = Metallic;
+    RoughnessOut = Roughness;
+}
+

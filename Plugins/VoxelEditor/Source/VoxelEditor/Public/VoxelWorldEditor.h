@@ -55,6 +55,9 @@ public:
 	/** 获取当前加载的地图文件路径 */
 	FString GetCurrentMapFilePath() const { return CurrentMapFilePath; }
 
+	/** 获取 VoxelWorld 地图目录路径（位于 ExternalData 目录） */
+	static FString GetVoxelWorldMapsDirectory();
+
 private:
 	/** 当前加载的地图文件路径 */
 	FString CurrentMapFilePath;

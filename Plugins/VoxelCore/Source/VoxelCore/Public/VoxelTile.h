@@ -33,9 +33,9 @@ public:
 	bool bIsActive;
 
 	/** 地块尺寸（固定为32*32*64） */
-	static constexpr int32 TileSizeX = 32;
-	static constexpr int32 TileSizeY = 32;
-	static constexpr int32 TileSizeZ = 64;
+	static constexpr int32 TileSizeX = VOXEL_TILE_SIZE_X;
+	static constexpr int32 TileSizeY = VOXEL_TILE_SIZE_Y;
+	static constexpr int32 TileSizeZ = VOXEL_TILE_SIZE_Z;
 
 	// ========== 地块坐标 ==========
 	
@@ -60,6 +60,12 @@ public:
 	 * @return 体素数据，如果坐标无效返回空体素
 	 */
 	UCVoxelData GetVoxel(int32 X, int32 Y, int32 Z) const;
+
+	/**
+	 * 初始化TileData（从地图数据中加载）
+	 * @param TileDataFromMap 从地图数据中获取的TileData
+	 */
+	void SetTileData(struct UCVoxelTileData* TileDataFromMap);
 
 	/**
 	 * 更新网格渲染（重建所有可见面）
@@ -124,7 +130,10 @@ private:
 	void BuildMeshData();
 
 	/** 为指定面添加顶点 */
-	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel);
+	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat = true);
+
+	/** 检查面的四个角是否都有相邻体素在同一高度（可用于合并） */
+	bool IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
 
 	// 六个面的方向向量（从VoxelTerrain复制）
 	static const FIntVector FaceDirections[6];

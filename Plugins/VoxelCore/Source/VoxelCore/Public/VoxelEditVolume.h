@@ -60,5 +60,6 @@ private:
 	
 	// 允许外部访问 BoxComponent（用于调试）
 	friend class FVoxelEditorEditorModeToolkit;
+	friend class UVoxelEditorEditTool;
 };
 

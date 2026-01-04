@@ -4,7 +4,11 @@
 
 #include "InteractiveToolBuilder.h"
 #include "BaseTools/ClickDragTool.h"
+#include "VoxelBlockTypes.h"
 #include "VoxelEditorEditTool.generated.h"
+
+// Forward declarations
+class UVoxelTerrain;
 
 
 /**
@@ -68,8 +72,8 @@ public:
 	/** IClickDragBehaviorTarget implementation */
 	virtual FInputRayHit CanBeginClickDragSequence(const FInputDeviceRay& PressPos) override;
 	virtual void OnClickPress(const FInputDeviceRay& PressPos) override;
-	virtual void OnClickDrag(const FInputDeviceRay& DragPos) override {}
-	virtual void OnClickRelease(const FInputDeviceRay& ReleasePos) override {}
+	virtual void OnClickDrag(const FInputDeviceRay& DragPos) override;
+	virtual void OnClickRelease(const FInputDeviceRay& ReleasePos) override;
 	virtual void OnTerminateDragSequence() override {}
 
 	/** IModifierToggleBehaviorTarget implementation (inherited via IClickDragBehaviorTarget) */
@@ -87,6 +91,36 @@ protected:
 
 	static const int ShiftKeyModifierID = 1;	// identifier for Shift key
 	bool bShiftKeyDown = false;					// flag to track Shift key state
+
+	/** Pending voxel placement position (for "摆放砖块" mode) */
+	FIntVector PendingPlacementPos;
+	bool bHasPendingPlacement = false;
+	
+	/** Current block type for placement */
+	int32 CurrentBlockType = VOXEL_BLOCK_TYPE_SELECT;
+	
+	/** Drag start position (for drag selection) */
+	FIntVector DragStartPos;
+	bool bIsDragging = false;
+	
+	/** Drag start hit position and normal (for plane-based drag calculation) */
+	FIntVector DragStartHitPos;
+	FIntVector DragStartHitNormal;
+	bool bHasDragStartPlane = false;
+	
+	/** Drag end position (current mouse position during drag) */
+	FIntVector DragEndPos;
+	
+	/** Selected region (for persistent selection after drag ends) */
+	FIntVector SelectedMinPos;
+	FIntVector SelectedMaxPos;
+	bool bHasSelectedRegion = false;
+	
+	/** Helper function to convert voxel coordinates to world box */
+	TTuple<FVector, FVector> VoxelCoordsToWorldBox(const FIntVector& MinPos, const FIntVector& MaxPos, float VoxelSize) const;
+	
+	/** Update VoxelEditVolume position and size to match the drag selection box */
+	void UpdateVoxelEditVolume(UWorld* World, UVoxelTerrain* Terrain);
 };
 
 

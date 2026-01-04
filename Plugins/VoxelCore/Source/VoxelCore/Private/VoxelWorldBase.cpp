@@ -51,21 +51,7 @@ bool AVoxelWorldBase::LoadMap(const FString& Filename)
 	UCString UCFilename = FStringToUCString(Filename);
 	
 	if (MapManager.LoadMap(UCFilename))
-	{
-		// 加载成功后，从地图数据加载地形
-		if (MapManager.Curr && TerrainObject)
-		{
-			TerrainObject->DeserializeFromMapData(*MapManager.Curr, GetWorld());
-			UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Loaded terrain data from map"));
-		}
-		
-		// TODO: 实现从地图数据加载预制件的逻辑
-		
-		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Successfully loaded map from %s"), *Filename);
 		return true;
-	}
-	
-	UE_LOG(LogTemp, Warning, TEXT("VoxelWorld: Failed to load map from %s"), *Filename);
 	return false;
 }
 
@@ -77,17 +63,8 @@ void AVoxelWorldBase::SaveMap(const FString& Filename)
 	if (!MapManager.Curr)
 		return;
 	
-	// 如果存在Terrain，序列化Terrain数据到MapData
-	if (TerrainObject && MapManager.Curr)
-	{
-		TerrainObject->SerializeToMapData(*MapManager.Curr);
-		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Serialized terrain data to map"));
-	}
-	
 	// 保存地图
 	MapManager.SaveMap(UCFilename);
-	
-	UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Saved map to %s"), *Filename);
 }
 
 UVoxelTerrain* AVoxelWorldBase::CreateTerrain()

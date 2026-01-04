@@ -17,12 +17,15 @@
 #include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboBox.h"
 #include "Widgets/Colors/SColorBlock.h"
 #include "Styling/AppStyle.h"
 #include "Styling/SlateColor.h"
 #include "Styling/CoreStyle.h"
 #include "VoxelEditVolume.h"
 #include "VoxelTerrain.h"
+#include "VoxelMap.h"
+#include "VoxelBlockTypes.h"
 #include "Editor.h"
 
 #include "Modules/ModuleManager.h"
@@ -39,6 +42,14 @@ FVoxelEditorEditorModeToolkit::FVoxelEditorEditorModeToolkit()
 	CurrentMapHeight = 0;
 	bMapLoaded = false;
 	EditToolButtonStates.Empty();
+	
+	// 初始化地块种类选项
+	BlockTypeOptions = MakeShareable(new TArray<TSharedPtr<FString>>);
+	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Select Block"))));
+	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Place Block"))));
+	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Place Square Slope"))));
+	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Place Triangular Slope"))));
+	SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
 }
 
 void FVoxelEditorEditorModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost, TWeakObjectPtr<UEdMode> InOwningMode)
@@ -266,6 +277,58 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 				]
 			]
 			
+			// 地块种类选择下拉框
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0, 0, 0, 10)
+			[
+				SNew(SHorizontalBox)
+				
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(0, 5, 5, 5)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("VoxelEditor", "BlockTypeLabel", "地块种类:"))
+				]
+				
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.Padding(0, 5, 0, 5)
+				[
+					SAssignNew(BlockTypeComboBox, SComboBox<TSharedPtr<FString>>)
+					.OptionsSource(BlockTypeOptions.Get())
+					.OnGenerateWidget_Lambda([](TSharedPtr<FString> InOption)
+					{
+						return SNew(STextBlock).Text(FText::FromString(*InOption));
+					})
+					.OnSelectionChanged_Lambda([this](TSharedPtr<FString> NewSelection, ESelectInfo::Type)
+					{
+						if (NewSelection.IsValid() && BlockTypeOptions.IsValid())
+						{
+							int32 Index = BlockTypeOptions->Find(NewSelection);
+							if (Index != INDEX_NONE)
+							{
+								SelectedBlockTypeIndex = Index;
+								UE_LOG(LogTemp, Log, TEXT("Block type selected: %s (index: %d)"), **NewSelection, Index);
+							}
+						}
+					})
+					[
+						SNew(STextBlock)
+						.Text_Lambda([this]()
+						{
+							if (BlockTypeOptions.IsValid() && BlockTypeOptions->IsValidIndex(SelectedBlockTypeIndex))
+							{
+								return FText::FromString(*(*BlockTypeOptions)[SelectedBlockTypeIndex]);
+							}
+							return FText::FromString(TEXT("Select Block"));
+						})
+					]
+				]
+			]
+			
 			// 网格区域
 			+ SVerticalBox::Slot()
 			.FillHeight(1.0f)
@@ -393,6 +456,14 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 										
 										if (Terrain && WorldEditor->GetWorld())
 										{
+											// 获取地图数据（如果已加载）
+											const UCVoxelMapData* MapData = nullptr;
+											UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+											if (MapManager.Curr)
+											{
+												MapData = MapManager.Curr;
+											}
+											
 											// 设置地块激活状态（会自动创建或销毁）
 											Terrain->SetTileActive(X, Y, WorldEditor->GetWorld(), EditToolButtonStates[ButtonIndex]);
 											UE_LOG(LogTemp, Log, TEXT("Tile [%d,%d] set to %s"), 
@@ -419,9 +490,9 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 												{
 													// 计算Tile的世界位置（Tile中心）
 													// Tile (0,0)的中心在(0, 0, 0)，每个Tile是32*32*64个体素
-													const float TileSizeX = 32.0f;
-													const float TileSizeY = 32.0f;
-													const float TileSizeZ = 64.0f;
+													const float TileSizeX = (float)VOXEL_TILE_SIZE_X;
+													const float TileSizeY = (float)VOXEL_TILE_SIZE_Y;
+													const float TileSizeZ = (float)VOXEL_TILE_SIZE_Z;
 													const float VoxelSize = Terrain->VoxelSize;
 													const float TileWorldSize = TileSizeX * VoxelSize; // 3200厘米
 													
@@ -437,7 +508,11 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 													EditVolume->SetActorLocation(VolumePosition);
 													
 													// 设置Volume大小：3200x3200x6400（厘米），SetBoxExtent使用半尺寸
-													FVector BoxExtent(1600.0f, 1600.0f, 3200.0f); // 半尺寸：3200/2, 3200/2, 6400/2
+													FVector BoxExtent(
+														(float)(VOXEL_TILE_SIZE_X * VoxelSize) / 2.0f,
+														(float)(VOXEL_TILE_SIZE_Y * VoxelSize) / 2.0f,
+														(float)(VOXEL_TILE_SIZE_Z * VoxelSize) / 2.0f
+													); // 半尺寸：VOXEL_TILE_SIZE_X*VoxelSize/2, VOXEL_TILE_SIZE_Y*VoxelSize/2, VOXEL_TILE_SIZE_Z*VoxelSize/2
 													EditVolume->BoxComponent->SetBoxExtent(BoxExtent);
 													
 													UE_LOG(LogTemp, Log, TEXT("Updated VoxelEditVolume position to Tile [%d,%d] center: (%.2f, %.2f, %.2f), size: (%.2f, %.2f, %.2f)"), 
@@ -737,8 +812,8 @@ void FVoxelEditorEditorModeToolkit::ClearCurrentTile() const
 	int32 VoxelY = FMath::FloorToInt(VolumeCenter.Y / VoxelSize);
 	
 	// 计算Tile坐标
-	const int32 TileSizeX = 32;
-	const int32 TileSizeY = 32;
+	const int32 TileSizeX = VOXEL_TILE_SIZE_X;
+	const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
 	const int32 HalfTileSizeX = TileSizeX / 2; // 16
 	const int32 HalfTileSizeY = TileSizeY / 2; // 16
 
@@ -759,7 +834,7 @@ void FVoxelEditorEditorModeToolkit::ClearCurrentTile() const
 	
 	// Tile的边界：从-16*100到+16*100 (X和Y), 从0到64*100 (Z)
 	// Tile (0,0)的中心在(0, 0, 0)，边界从(-1600, -1600, 0)到(+1600, +1600, 6400)
-	const float TileSizeZ = 64.0f;
+	const float TileSizeZ = (float)VOXEL_TILE_SIZE_Z;
 	const float HalfTileWorldSize = HalfTileSizeX * VoxelSize; // 1600厘米
 	FVector TileMin = FVector(TileCenterX - HalfTileWorldSize, TileCenterY - HalfTileWorldSize, 0.0f);
 	FVector TileMax = FVector(TileCenterX + HalfTileWorldSize, TileCenterY + HalfTileWorldSize, TileSizeZ * VoxelSize);
@@ -784,6 +859,11 @@ FName FVoxelEditorEditorModeToolkit::GetToolkitFName() const
 FText FVoxelEditorEditorModeToolkit::GetBaseToolkitName() const
 {
 	return LOCTEXT("DisplayName", "VoxelEditorEditorMode Toolkit");
+}
+
+int32 FVoxelEditorEditorModeToolkit::GetSelectedBlockType() const
+{
+	return SelectedBlockTypeIndex;
 }
 
 #undef LOCTEXT_NAMESPACE

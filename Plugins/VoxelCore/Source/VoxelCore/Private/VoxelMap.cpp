@@ -44,19 +44,18 @@ SCRIPT_IMPLEMENT_END(UCE_UCVoxelMapNodeData)
 
 #define new UCNEW
 
-UCVoxelData::UCVoxelData() : Type(0), Layer(UCVoxelData_Layer_Null)
+UCVoxelData::UCVoxelData() : Data(0)
 {
 
 }
 
-UCVoxelData::UCVoxelData(ucCONST UCVoxelData& in) : Type(in.Type), Layer(in.Layer)
+UCVoxelData::UCVoxelData(ucCONST UCVoxelData& in) : Data(in.Data)
 {
 }
 
 UCVoxelData& UCVoxelData::operator =(ucCONST UCVoxelData& in)
 {
-	Type = in.Type;
-	Layer = in.Layer;
+	Data = in.Data;
 	return *this;
 }
 
@@ -91,7 +90,7 @@ UCVoxelTileData::~UCVoxelTileData()
 }
 
 UCVoxelMapData::UCVoxelMapData()
-	: Size(UCSize(4, 4))
+	: Size(UCSize(0, 0))
 	, _AryTiles(UCEVariableInfoCC(&UCE_UCVoxelTileData::I))
 {
 }
@@ -177,6 +176,49 @@ ucVOID	UCVoxelMapManager::NewCurrentMap(UCSize Size)
 	Curr = new UCVoxelMapData;
 
 	Curr->Size = Size;
+
+	// 清空现有的 Tile 数据
+	Curr->_AryTiles.RemoveAll();
+
+	// Tile 尺寸（固定为 32*32*64）
+	const ucINT TileSizeX = VOXEL_TILE_SIZE_X;
+	const ucINT TileSizeY = VOXEL_TILE_SIZE_Y;
+	const ucINT TileSizeZ = VOXEL_TILE_SIZE_Z;
+	const ucINT TotalVoxels = TileSizeX * TileSizeY * TileSizeZ; // 65536
+
+	// 计算 Tile 坐标范围（中心为原点）
+	// X: 从 -(Size.cx - 1) / 2 到 (Size.cx - 1) / 2
+	// Y: 从 -(Size.cy - 1) / 2 到 (Size.cy - 1) / 2
+	ucINT StartX = -(Size.cx - 1) / 2;
+	ucINT EndX = (Size.cx - 1) / 2;
+	ucINT StartY = -(Size.cy - 1) / 2;
+	ucINT EndY = (Size.cy - 1) / 2;
+
+	// 为每个 Tile 坐标创建 TileData
+	for (ucINT TileY = StartY; TileY <= EndY; ++TileY)
+	{
+		for (ucINT TileX = StartX; TileX <= EndX; ++TileX)
+		{
+			UCVoxelTileData TileData;
+			TileData.TileX = TileX;
+			TileData.TileY = TileY;
+
+			// 清空并初始化 AryVoxels
+			TileData.AryVoxels.SetSize(TotalVoxels);
+
+			// 填充 VOXEL_TILE_SIZE_X*VOXEL_TILE_SIZE_Y*VOXEL_TILE_SIZE_Z = 65536 个 0（空体素）
+			// UCVoxelData 的默认值是 Type=0, Layer=UCVoxelData_Layer_Null
+			UCVoxelData EmptyVoxel;
+			EmptyVoxel.Type = 0;
+			EmptyVoxel.Layer = UCVoxelData_Layer_Null;
+
+			for (ucINT i = 0; i < TotalVoxels; ++i)
+				TileData.AryVoxels[i] = EmptyVoxel.Data;
+
+			// 添加到地图数据中
+			Curr->_AryTiles.Add(*(_UCEArray::TValue*)&TileData);
+		}
+	}
 }
 
 ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
@@ -188,7 +230,7 @@ ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
 	if (File.Open(Filename, UCFile::modeRead) != ucTRUE)
 		return ucFALSE;
 
-	UCEJsonFormatter Formatter;
+	UCEBinaryFormatter Formatter;
 	return Formatter.Load(&File, Curr, &UCE_UCVoxelMapData::I);
 }
 
@@ -202,6 +244,6 @@ ucVOID	UCVoxelMapManager::SaveMap(ucCONST UCString& Filename)
 	if (File.Open(Filename, UCFile::modeCreate | UCFile::modeWrite) != ucTRUE)
 		return;
 
-	UCEJsonFormatter Formatter;
+	UCEBinaryFormatter Formatter;
 	Formatter.Save(&File, Curr, &UCE_UCVoxelMapData::I);
 }

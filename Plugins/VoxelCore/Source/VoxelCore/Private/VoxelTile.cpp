@@ -165,6 +165,11 @@ UCVoxelData AVoxelTile::GetVoxel(int32 X, int32 Y, int32 Z) const
 	return VoxelData;
 }
 
+void AVoxelTile::SetTileData(UCVoxelTileData* TileDataFromMap)
+{
+	TileData = TileDataFromMap;
+}
+
 void AVoxelTile::SetActive(bool bActive)
 {
 	bIsActive = bActive;
@@ -173,13 +178,13 @@ void AVoxelTile::SetActive(bool bActive)
 	UpdateMesh(bIsActive);
 }
 
-void AVoxelTile::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel)
+void AVoxelTile::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat)
 {
 	if (FaceIndex < 0 || FaceIndex >= 6)
 		return;
 
 	// 计算体素在世界空间中的位置（Unreal中Z向上）
-	FVector BasePos = FVector(X * VoxelSize - 16 * VoxelSize, Y * VoxelSize - 16 * VoxelSize, Z * VoxelSize - 32 * VoxelSize);
+	FVector BasePos = FVector(X * VoxelSize - (VOXEL_TILE_SIZE_X / 2) * VoxelSize, Y * VoxelSize - (VOXEL_TILE_SIZE_Y / 2) * VoxelSize, Z * VoxelSize - (VOXEL_TILE_SIZE_Z / 2) * VoxelSize);
 
 	// 获取当前面的法向量
 	FVector Normal = FaceNormals[FaceIndex];
@@ -190,56 +195,268 @@ void AVoxelTile::AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVox
 	// 计算当前面的基础索引（用于三角形索引）
 	int32 BaseIndex = Vertices.Num();
 
-	// 添加四个顶点
-	for (int32 i = 0; i < 4; ++i)
+	if (bFlat)
 	{
-		FVector VertexOffset = FaceVerts[i] * VoxelSize;
-		FVector VertexPos = BasePos + VertexOffset;
-		Vertices.Add(VertexPos);
-		Normals.Add(Normal);
-		
-		// UV坐标
-		FVector2D UV;
+		// 简单模式：4顶点 + 2三角形（原来的方式）
+		for (int32 i = 0; i < 4; ++i)
+		{
+			FVector VertexOffset = FaceVerts[i] * VoxelSize;
+			FVector VertexPos = BasePos + VertexOffset;
+			Vertices.Add(VertexPos);
+			Normals.Add(Normal);
+			
+			// UV坐标
+			FVector2D UV;
+			if (FaceIndex < 4) // 侧面
+			{
+				if (FaceIndex == 0 || FaceIndex == 2) // Left/Right面：使用X和Z
+				{
+					UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Z / VoxelSize);
+				}
+				else // Front/Back面：使用Y和Z
+				{
+					UV = FVector2D(VertexOffset.Y / VoxelSize, VertexOffset.Z / VoxelSize);
+				}
+			}
+			else // Top/Bottom面：使用X和Y
+			{
+				UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Y / VoxelSize);
+			}
+			UVs.Add(UV);
+
+			// 顶点颜色（简单模式：白色）
+			FColor Color = FColor::White;
+			if (Voxel.Type > 0)
+			{
+				uint8 Gray = FMath::Clamp(Voxel.Type * 255 / 255, (uint8)64, (uint8)255);
+				Color = FColor(Gray, Gray, Gray, 255);
+			}
+			VertexColors.Add(Color);
+
+			// 切线
+			Tangents.Add(FProcMeshTangent(0, 0, 1));
+		}
+
+		// 添加两个三角形（逆时针顺序，确保外表面正确渲染）
+		// 第一个三角形
+		Triangles.Add(BaseIndex + 0);
+		Triangles.Add(BaseIndex + 2);
+		Triangles.Add(BaseIndex + 1);
+
+		// 第二个三角形
+		Triangles.Add(BaseIndex + 0);
+		Triangles.Add(BaseIndex + 3);
+		Triangles.Add(BaseIndex + 2);
+	}
+	else
+	{
+		// AO模式：5顶点（4个角+1个中心）+ 4个三角形
+		// 获取面的切向量
+		FVector Tangent1, Tangent2;
 		if (FaceIndex < 4) // 侧面
 		{
-			if (FaceIndex == 0 || FaceIndex == 2) // Left/Right面：使用X和Z
-			{
-				UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Z / VoxelSize);
-			}
-			else // Front/Back面：使用Y和Z
-			{
-				UV = FVector2D(VertexOffset.Y / VoxelSize, VertexOffset.Z / VoxelSize);
-			}
+			Tangent1 = FVector(0, 0, 1); // Z方向
+			if (FaceIndex == 0 || FaceIndex == 2) // Left/Right
+				Tangent2 = FVector(1, 0, 0); // X方向
+			else // Front/Back
+				Tangent2 = FVector(0, 1, 0); // Y方向
 		}
-		else // Top/Bottom面：使用X和Y
+		else // Top/Bottom
 		{
-			UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Y / VoxelSize);
+			Tangent1 = FVector(1, 0, 0); // X方向
+			Tangent2 = FVector(0, 1, 0); // Y方向
 		}
-		UVs.Add(UV);
-
-		// 顶点颜色
-		FColor Color = FColor::White;
-		if (Voxel.Type > 0)
+		
+		// 计算中心点
+		FVector Center = (FaceVerts[0] + FaceVerts[1] + FaceVerts[2] + FaceVerts[3]) * 0.25f * VoxelSize;
+		FVector CenterPos = BasePos + Center;
+		
+		// 获取方向向量用于检查相邻体素
+		FIntVector Direction = FaceDirections[FaceIndex];
+		
+		// 添加4个角顶点 + 1个中心顶点
+		for (int32 i = 0; i < 5; ++i)
 		{
-			uint8 Gray = FMath::Clamp(Voxel.Type * 255 / 255, (uint8)64, (uint8)255);
-			Color = FColor(Gray, Gray, Gray, 255);
+			FVector VertexPos;
+			FVector2D UV;
+			
+			if (i < 4)
+			{
+				// 角顶点
+				FVector VertexOffset = FaceVerts[i] * VoxelSize;
+				VertexPos = BasePos + VertexOffset;
+				
+				// UV坐标（角顶点在边界）
+				if (FaceIndex < 4) // 侧面
+				{
+					if (FaceIndex == 0 || FaceIndex == 2) // Left/Right面
+					{
+						UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Z / VoxelSize);
+					}
+					else // Front/Back面
+					{
+						UV = FVector2D(VertexOffset.Y / VoxelSize, VertexOffset.Z / VoxelSize);
+					}
+				}
+				else // Top/Bottom面
+				{
+					UV = FVector2D(VertexOffset.X / VoxelSize, VertexOffset.Y / VoxelSize);
+				}
+			}
+			else
+			{
+				// 中心顶点
+				VertexPos = CenterPos;
+				
+				// UV坐标（中心点）
+				if (FaceIndex < 4) // 侧面
+				{
+					if (FaceIndex == 0 || FaceIndex == 2) // Left/Right面
+					{
+						UV = FVector2D(0.5f, 0.5f);
+					}
+					else // Front/Back面
+					{
+						UV = FVector2D(0.5f, 0.5f);
+					}
+				}
+				else // Top/Bottom面
+				{
+					UV = FVector2D(0.5f, 0.5f);
+				}
+			}
+			
+			Vertices.Add(VertexPos);
+			Normals.Add(Normal);
+			UVs.Add(UV);
+			
+			// 顶点颜色（AO）
+			FColor Color = FColor::White;
+			if (i < 4)
+			{
+				// 角顶点：检查是否有相邻体素，如果有则添加阴影
+				FIntVector CornerOffset;
+				if (i == 0) // 左下
+					CornerOffset = FIntVector(-1, -1, 0);
+				else if (i == 1) // 右下
+					CornerOffset = FIntVector(1, -1, 0);
+				else if (i == 2) // 右上
+					CornerOffset = FIntVector(1, 1, 0);
+				else // 左上
+					CornerOffset = FIntVector(-1, 1, 0);
+				
+				// 调整CornerOffset到正确的坐标系
+				if (FaceIndex < 4) // 侧面
+				{
+					if (FaceIndex == 0) // Left: CornerOffset应该是(-1,0,-1), (1,0,-1), (1,0,1), (-1,0,1)在XZ平面
+					{
+						if (i == 0) CornerOffset = FIntVector(-1, 0, -1);
+						else if (i == 1) CornerOffset = FIntVector(1, 0, -1);
+						else if (i == 2) CornerOffset = FIntVector(1, 0, 1);
+						else CornerOffset = FIntVector(-1, 0, 1);
+					}
+					else if (FaceIndex == 1) // Front
+					{
+						if (i == 0) CornerOffset = FIntVector(0, -1, -1);
+						else if (i == 1) CornerOffset = FIntVector(0, 1, -1);
+						else if (i == 2) CornerOffset = FIntVector(0, 1, 1);
+						else CornerOffset = FIntVector(0, -1, 1);
+					}
+					else if (FaceIndex == 2) // Right
+					{
+						if (i == 0) CornerOffset = FIntVector(1, 0, -1);
+						else if (i == 1) CornerOffset = FIntVector(-1, 0, -1);
+						else if (i == 2) CornerOffset = FIntVector(-1, 0, 1);
+						else CornerOffset = FIntVector(1, 0, 1);
+					}
+					else // Back
+					{
+						if (i == 0) CornerOffset = FIntVector(0, 1, -1);
+						else if (i == 1) CornerOffset = FIntVector(0, -1, -1);
+						else if (i == 2) CornerOffset = FIntVector(0, -1, 1);
+						else CornerOffset = FIntVector(0, 1, 1);
+					}
+				}
+				else if (FaceIndex == 4) // Top
+				{
+					if (i == 0) CornerOffset = FIntVector(-1, -1, 1);
+					else if (i == 1) CornerOffset = FIntVector(1, -1, 1);
+					else if (i == 2) CornerOffset = FIntVector(1, 1, 1);
+					else CornerOffset = FIntVector(-1, 1, 1);
+				}
+				else // Bottom
+				{
+					if (i == 0) CornerOffset = FIntVector(-1, 1, -1);
+					else if (i == 1) CornerOffset = FIntVector(1, 1, -1);
+					else if (i == 2) CornerOffset = FIntVector(1, -1, -1);
+					else CornerOffset = FIntVector(-1, -1, -1);
+				}
+				
+				// 检查对角相邻体素是否存在
+				int32 DiagX = X + Direction.X + CornerOffset.X;
+				int32 DiagY = Y + Direction.Y + CornerOffset.Y;
+				int32 DiagZ = Z + Direction.Z + CornerOffset.Z;
+				
+				// 如果对角相邻体素存在，添加阴影（降低亮度）
+				if (!IsVoxelEmpty(DiagX, DiagY, DiagZ))
+				{
+					// 角落有阴影：使用较暗的颜色（约0.6-0.7的亮度）
+					uint8 AOValue = 160; // 约0.63的亮度
+					Color = FColor(AOValue, AOValue, AOValue, 255);
+				}
+				else
+				{
+					Color = FColor::White;
+				}
+				
+				if (Voxel.Type > 0)
+				{
+					uint8 Gray = FMath::Clamp(Voxel.Type * 255 / 255, (uint8)64, (uint8)255);
+					Color = FColor(
+						FMath::Min((uint32)Color.R * Gray / 255, 255u),
+						FMath::Min((uint32)Color.G * Gray / 255, 255u),
+						FMath::Min((uint32)Color.B * Gray / 255, 255u),
+						255
+					);
+				}
+			}
+			else
+			{
+				// 中心顶点：无阴影，保持白色
+				if (Voxel.Type > 0)
+				{
+					uint8 Gray = FMath::Clamp(Voxel.Type * 255 / 255, (uint8)64, (uint8)255);
+					Color = FColor(Gray, Gray, Gray, 255);
+				}
+			}
+			
+			VertexColors.Add(Color);
+			
+			// 切线
+			Tangents.Add(FProcMeshTangent(0, 0, 1));
 		}
-		VertexColors.Add(Color);
-
-		// 切线
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
+		
+		// 添加4个三角形（从中心到每个角，连接相邻的角，逆时针顺序确保外表面正确渲染）
+		// 三角形0: 中心, 角0, 角1
+		Triangles.Add(BaseIndex + 4); // 中心
+		Triangles.Add(BaseIndex + 1); // 角0
+		Triangles.Add(BaseIndex + 0); // 角1
+		
+		// 三角形1: 中心, 角1, 角2
+		Triangles.Add(BaseIndex + 4); // 中心
+		Triangles.Add(BaseIndex + 2); // 角1
+		Triangles.Add(BaseIndex + 1); // 角2
+		
+		// 三角形2: 中心, 角2, 角3
+		Triangles.Add(BaseIndex + 4); // 中心
+		Triangles.Add(BaseIndex + 3); // 角2
+		Triangles.Add(BaseIndex + 2); // 角3
+		
+		// 三角形3: 中心, 角3, 角0
+		Triangles.Add(BaseIndex + 4); // 中心
+		Triangles.Add(BaseIndex + 0); // 角3
+		Triangles.Add(BaseIndex + 3); // 角0
 	}
-
-	// 添加两个三角形（逆时针顺序，确保外表面正确渲染）
-	// 第一个三角形
-	Triangles.Add(BaseIndex + 0);
-	Triangles.Add(BaseIndex + 2);
-	Triangles.Add(BaseIndex + 1);
-
-	// 第二个三角形
-	Triangles.Add(BaseIndex + 0);
-	Triangles.Add(BaseIndex + 3);
-	Triangles.Add(BaseIndex + 2);
 }
 
 void AVoxelTile::ClearMeshData()
@@ -251,6 +468,90 @@ void AVoxelTile::ClearMeshData()
 	UVs.Empty();
 	VertexColors.Empty();
 	Tangents.Empty();
+}
+
+bool AVoxelTile::IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const
+{
+	// 检查相邻的8个体素是否都与当前体素在同一Layer
+	// 只有完全在一个平面上的（相邻8个体素都相同Layer，且面的法线方向为空）才使用2个三角形
+	// 其他情况都使用5个顶点（4个三角形）
+	
+	FIntVector Direction = FaceDirections[FaceIndex];
+	
+	// 获取当前体素的Layer
+	UCVoxelData CurrentVoxel = GetVoxel(X, Y, Z);
+	uint8 CurrentLayer = CurrentVoxel.Layer;
+	
+	// 检查面的法线方向的相邻体素是否为空（这是前提条件，只有外表面才会被渲染）
+	int32 FaceAdjX = X + Direction.X;
+	int32 FaceAdjY = Y + Direction.Y;
+	int32 FaceAdjZ = Z + Direction.Z;
+	if (!IsVoxelEmpty(FaceAdjX, FaceAdjY, FaceAdjZ))
+	{
+		return false; // 面的法线方向有体素，这个面不应该被渲染
+	}
+	
+	// 检查面的平面上（法线方向上偏移一个单位）的相邻8个体素
+	// 对于任意面，都要检查在法线方向上偏移后，该面的3x3区域的8个体素是否都存在且Layer相同
+	
+	// 确定两个切向量（与法向量垂直的两个方向）
+	FIntVector Axis1, Axis2;
+	if (FaceIndex < 4) // 侧面 (Left, Front, Right, Back)
+	{
+		// 侧面：一个轴是Z，另一个是X或Y
+		Axis2 = FIntVector(0, 0, 1); // Z轴
+		if (Direction.X != 0) // Front/Back (Direction.X = +/-1)
+		{
+			Axis1 = FIntVector(0, 1, 0); // Y轴
+		}
+		else // Left/Right (Direction.Y = +/-1)
+		{
+			Axis1 = FIntVector(1, 0, 0); // X轴
+		}
+	}
+	else // Top/Bottom
+	{
+		// 顶面/底面：轴是X和Y
+		Axis1 = FIntVector(1, 0, 0); // X轴
+		Axis2 = FIntVector(0, 1, 0); // Y轴
+	}
+	
+	// 1. 检查法线方向上偏移一个单位后的3x3区域是否都为空（如果有体素，说明法线方向有体素，不是平的）
+	for (int32 Offset1 = -1; Offset1 <= 1; ++Offset1)
+	{
+		for (int32 Offset2 = -1; Offset2 <= 1; ++Offset2)
+		{
+			// 跳过中心体素本身
+			if (Offset1 == 0 && Offset2 == 0)
+				continue;
+
+			// 计算在法线方向上偏移一个单位后，该面的3x3区域中的体素位置
+			// 位置 = (X, Y, Z) + Direction + Offset1*Axis1 + Offset2*Axis2
+			int32 NormalAdjX = X + Direction.X + Offset1 * Axis1.X + Offset2 * Axis2.X;
+			int32 NormalAdjY = Y + Direction.Y + Offset1 * Axis1.Y + Offset2 * Axis2.Y;
+			int32 NormalAdjZ = Z + Direction.Z + Offset1 * Axis1.Z + Offset2 * Axis2.Z;
+			
+			// 如果法线方向上有体素（不空），说明不是平的
+			if (!IsVoxelEmpty(NormalAdjX, NormalAdjY, NormalAdjZ))
+			{
+				return false; // 法线方向有体素，不是平的
+			}
+
+			// 计算同一平面上的相邻体素位置（不偏移法线方向）
+			// 位置 = (X, Y, Z) + Offset1*Axis1 + Offset2*Axis2
+			int32 PlaneAdjX = X + Offset1 * Axis1.X + Offset2 * Axis2.X;
+			int32 PlaneAdjY = Y + Offset1 * Axis1.Y + Offset2 * Axis2.Y;
+			int32 PlaneAdjZ = Z + Offset1 * Axis1.Z + Offset2 * Axis2.Z;
+
+			UCVoxelData PlaneAdjVoxel = GetVoxel(PlaneAdjX, PlaneAdjY, PlaneAdjZ);
+			if (PlaneAdjVoxel.Layer != CurrentLayer)
+			{
+				return false; // Layer不同，不是平的
+			}
+		}
+	}
+	
+	return true; // 相邻的8个体素都与当前体素在同一Layer，且面的法线方向为空
 }
 
 void AVoxelTile::BuildMeshData()
@@ -277,7 +578,9 @@ void AVoxelTile::BuildMeshData()
 					// 如果相邻体素为空或者是边界，则添加这个面（外表面）
 					if (IsVoxelEmpty(AdjX, AdjY, AdjZ))
 					{
-						AddFace(X, Y, Z, FaceIndex, Voxel);
+						// 检查面是否可以合并（周围都平）
+						bool bFlat = IsFaceFlat(X, Y, Z, FaceIndex);
+						AddFace(X, Y, Z, FaceIndex, Voxel, bFlat);
 					}
 				}
 			}

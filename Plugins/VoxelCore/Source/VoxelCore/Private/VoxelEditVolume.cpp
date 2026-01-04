@@ -13,8 +13,8 @@ purpose:	VoxelEditVolume 实现
 
 AVoxelEditVolume::AVoxelEditVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, VoxelType(1)
-	, VoxelLayer(0)
+	, VoxelType(0)
+	, VoxelLayer(1)
 {
 	PrimaryActorTick.bCanEverTick = false;
 

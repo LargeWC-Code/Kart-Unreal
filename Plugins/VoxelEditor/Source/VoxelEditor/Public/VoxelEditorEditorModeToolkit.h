@@ -4,10 +4,14 @@
 
 #include "Toolkits/BaseToolkit.h"
 #include "VoxelEditorEditorMode.h"
+#include "VoxelBlockTypes.h"
 #include "Widgets/SWidget.h"
 #include "Widgets/Layout/SUniformGridPanel.h"
 
 class AVoxelWorldEditor;
+
+template<typename T>
+class SComboBox;
 
 /**
  * This FModeToolkit just creates a basic UI panel that allows various InteractiveTools to
@@ -30,6 +34,9 @@ public:
 	/** Update the edit tool grid from map dimensions */
 	void UpdateEditToolGridFromMap(int32 MapWidth, int32 MapHeight) const;
 
+	/** Get the selected block type */
+	int32 GetSelectedBlockType() const;
+
 private:
 	/** 工具包的主 Widget */
 	TSharedPtr<SWidget> ToolkitWidget;
@@ -47,6 +54,11 @@ private:
 
 	/** Edit tool button states */
 	mutable TArray<bool> EditToolButtonStates;
+
+	/** Block type combo box options and selected index */
+	mutable TSharedPtr<TArray<TSharedPtr<FString>>> BlockTypeOptions;
+	mutable int32 SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
+	mutable TSharedPtr<class SComboBox<TSharedPtr<FString>>> BlockTypeComboBox;
 
 	/** Owning editor mode */
 	TWeakObjectPtr<UEdMode> OwningMode;

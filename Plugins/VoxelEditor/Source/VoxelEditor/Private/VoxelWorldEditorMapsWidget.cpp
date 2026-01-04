@@ -553,7 +553,7 @@ FReply SVoxelWorldEditorMapsWidget::OnCreateMapClicked()
 								ParentNode->_AryNodes.Add((ucCONST _UCEArray::TValue&)NewNodeData);
 								
 								// 保存到文件
-								FString MapsDir = FPaths::ProjectContentDir() / TEXT("VoxelWorld/World");
+								FString MapsDir = AVoxelWorldEditor::GetVoxelWorldMapsDirectory();
 								FString MapFile = MapsDir / TEXT("AllMaps.wjson");
 								UCString UCMapFile = UCString(*MapFile);
 								WorldEditor->GetMapManager().SaveToFile(UCMapFile);
@@ -581,8 +581,8 @@ FReply SVoxelWorldEditorMapsWidget::OnCreateMapClicked()
 									}
 									// 如果SelectedNode是Root，MapDir保持为MapsDir
 									
-									// 构建地图文件路径：{MapDir}/{MapName}.mjson
-									FString MapFilePath = MapDir / (MapName + TEXT(".mjson"));
+									// 构建地图文件路径：{MapDir}/{MapName}.mdata
+									FString MapFilePath = MapDir / (MapName + TEXT(".mdata"));
 									
 									// 递归创建目录
 									IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
@@ -713,7 +713,7 @@ FReply SVoxelWorldEditorMapsWidget::OnDeleteMapClicked()
 			bFound = true;
 			
 			// 保存到文件
-			FString MapsDir = FPaths::ProjectContentDir() / TEXT("VoxelWorld/World");
+			FString MapsDir = AVoxelWorldEditor::GetVoxelWorldMapsDirectory();
 			FString MapFile = MapsDir / TEXT("AllMaps.wjson");
 			UCString UCMapFile = UCString(*MapFile);
 			MapManager.SaveToFile(UCMapFile);
@@ -808,12 +808,12 @@ void SVoxelWorldEditorMapsWidget::OnMapDoubleClicked(TSharedPtr<FVoxelMapTreeNod
 	
 	// 获取节点路径
 	FString NodePath = GetNodePath(Item);
-	FString MapsDir = FPaths::ProjectContentDir() / TEXT("VoxelWorld/World") / NodePath;
+	FString MapsDir = AVoxelWorldEditor::GetVoxelWorldMapsDirectory() / NodePath;
 	
 	// 获取地图名称
 	const wchar_t* NameBuffer = (const wchar_t*)Item->NodeData->Name;
 	FString MapName = FString(Item->NodeData->Name.GetLength(), NameBuffer);
-	FString MapFile = MapsDir / (MapName + TEXT(".mjson"));
+	FString MapFile = MapsDir / (MapName + TEXT(".mdata"));
 	
 	// 检查文件是否存在
 	if (FPaths::FileExists(MapFile))

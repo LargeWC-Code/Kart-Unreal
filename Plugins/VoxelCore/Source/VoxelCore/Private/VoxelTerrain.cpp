@@ -8,7 +8,9 @@ purpose:	VoxelTerrain 实现 - 管理地块的类
 #include "VoxelTerrain.h"
 #include "VoxelTile.h"
 #include "VoxelMap.h"
+#include "VoxelWorldBase.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/Guid.h"
 #include "UObject/NameTypes.h"
@@ -94,6 +96,40 @@ void UVoxelTerrain::SetTileActive(int32 TileX, int32 TileY, UWorld* World, bool 
 		AVoxelTile* Tile = GetTile(TileX, TileY, World, true);
 		if (Tile)
 		{
+			// 尝试从世界中的VoxelWorldBase获取地图数据
+			const UCVoxelMapData* MapData = nullptr;
+			for (TActorIterator<AVoxelWorldBase> ActorItr(World); ActorItr; ++ActorItr)
+			{
+				AVoxelWorldBase* VoxelWorld = *ActorItr;
+				if (IsValid(VoxelWorld))
+				{
+					UCVoxelMapManager& MapManager = VoxelWorld->MapManager;
+					if (MapManager.Curr)
+					{
+						MapData = MapManager.Curr;
+						break;
+					}
+				}
+			}
+
+			// 如果找到了地图数据，尝试从地图数据中加载TileData
+			if (MapData)
+			{
+				// 遍历地图数据中的Tile，查找匹配的TileData
+				int32 TileCount = MapData->_AryTiles.GetSize();
+				for (int32 i = 0; i < TileCount; ++i)
+				{
+					UCVoxelTileData& TileDataFromMap = (UCVoxelTileData&)MapData->_AryTiles.GetAt(i);
+					if (TileDataFromMap.TileX == TileX && TileDataFromMap.TileY == TileY)
+					{
+						// 找到匹配的TileData，初始化Tile的TileData
+						Tile->SetTileData(&TileDataFromMap);
+						UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTileActive: Loaded TileData from map for Tile(%d,%d)"), TileX, TileY);
+						break;
+					}
+				}
+			}
+			
 			Tile->SetActive(true);
 			ActiveTiles.Add(TileKey);
 		}
@@ -142,7 +178,7 @@ FVector UVoxelTerrain::GetTileWorldPosition(int32 TileX, int32 TileY) const
 {
 	// 每个地块是32*32*64个单元格，每个单元格100单位（厘米）= 1米
 	// 地块中心位置：Tile (0,0) 的中心在 (0, 0, 0)，覆盖范围从 -16*100 到 +16*100
-	const float TileWorldSize = 32.0f * VoxelSize; // 32个单元格 * 100厘米 = 3200厘米 = 32米
+	const float TileWorldSize = (float)VOXEL_TILE_SIZE_X * VoxelSize; // 32个单元格 * 100厘米 = 3200厘米 = 32米
 	
 	float WorldX = TileX * TileWorldSize;
 	float WorldY = TileY * TileWorldSize;
@@ -155,7 +191,7 @@ FIntVector UVoxelTerrain::GetTileWorldGridPosition(int32 TileX, int32 TileY) con
 {
 	// 每个地块是32*32*64个单元格，每个单元格100单位（厘米）= 1米
 	// 地块中心位置：Tile (0,0) 的中心在 (0, 0, 0)，覆盖范围从 -16*100 到 +16*100
-	const float TileWorldSize = 32; // 32个单元格 * 100厘米 = 3200厘米 = 32米
+	const float TileWorldSize = (float)VOXEL_TILE_SIZE_X; // 32个单元格 * 100厘米 = 3200厘米 = 32米
 
 	float WorldX = TileX * TileWorldSize + TileWorldSize / 2;
 	float WorldY = TileY * TileWorldSize + TileWorldSize / 2;
@@ -184,9 +220,9 @@ void UVoxelTerrain::FillRegion(const FVector& Min, const FVector& Max, uint8 Vox
 
 	// 计算涉及的地块范围
 	// 每个地块是 32x32x64 个体素，中心在 (0,0,0)，覆盖范围从 -16 到 +15
-	const int32 TileSizeX = 32;
-	const int32 TileSizeY = 32;
-	const int32 TileSizeZ = 64;
+	const int32 TileSizeX = VOXEL_TILE_SIZE_X;
+	const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
+	const int32 TileSizeZ = VOXEL_TILE_SIZE_Z;
 	const int32 HalfTileSizeX = TileSizeX / 2; // 16
 	const int32 HalfTileSizeY = TileSizeY / 2; // 16
 
@@ -285,9 +321,9 @@ bool UVoxelTerrain::SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uin
 	int32 VoxelZ = WorldPosition.Z;
 
 	// 计算所属的Tile坐标
-	const int32 TileSizeX = 32;
-	const int32 TileSizeY = 32;
-	const int32 TileSizeZ = 64;
+	const int32 TileSizeX = VOXEL_TILE_SIZE_X;
+	const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
+	const int32 TileSizeZ = VOXEL_TILE_SIZE_Z;
 	const int32 HalfTileSizeX = TileSizeX / 2; // 16
 	const int32 HalfTileSizeY = TileSizeY / 2; // 16
 	const int32 HalfTileSizeZ = TileSizeZ / 2; // 16
@@ -315,19 +351,6 @@ bool UVoxelTerrain::SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uin
 
 	// 将世界坐标转换为相对于Tile的局部坐标（Tile中心为原点）
 	FIntVector LocalPos = WorldPosition - TileWorldPos;
-
-// 	// 限制在地块范围内
-// 	const int32 TileSizeZ = 64;
-// 	const int32 HalfTileSizeZ = TileSizeZ / 2; // 32
-// 
-// 	if (LocalVoxelX < -HalfTileSizeX || LocalPos.X >= HalfTileSizeX ||
-// 		LocalVoxelY < -HalfTileSizeY || LocalPos.Y >= HalfTileSizeY ||
-// 		LocalVoxelZ < -HalfTileSizeZ || LocalPos.Z >= HalfTileSizeZ)
-// 	{
-// 		UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetVoxelAtWorldPosition: Voxel position (%d,%d,%d) is out of tile bounds"), 
-// 			LocalVoxelX, LocalVoxelY, LocalVoxelZ);
-// 		return false;
-// 	}
 
 	// 转换为存储坐标（0到31 for X/Y, 0到63 for Z）
 	int32 StorageX = LocalPos.X + HalfTileSizeX;
@@ -397,9 +420,9 @@ bool UVoxelTerrain::Intersect(const FVector& RayOrigin, const FVector& RayDirect
 	
 	
 	// 计算体素的局部坐标（从存储坐标转换为局部坐标）
-	const int32 TileSizeX = 32;
-	const int32 TileSizeY = 32;
-	const int32 TileSizeZ = 64;
+	const int32 TileSizeX = VOXEL_TILE_SIZE_X;
+	const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
+	const int32 TileSizeZ = VOXEL_TILE_SIZE_Z;
 	const int32 HalfTileSizeX = TileSizeX / 2;
 	const int32 HalfTileSizeY = TileSizeY / 2;
 	const int32 HalfTileSizeZ = TileSizeZ / 2;
@@ -475,123 +498,13 @@ bool UVoxelTerrain::Intersect(const FVector& RayOrigin, const FVector& RayDirect
 	if (FindFaceID == -1)
 		return false;
 	
+	const float TileWorldSize = (float)VOXEL_TILE_SIZE_X; // 32个单元格 * 100厘米 = 3200厘米 = 32米
+	FIntVector TilePosition(HitTile->TileCoord.X* TileWorldSize, HitTile->TileCoord.Y* TileWorldSize, 0);
 	// 计算世界坐标的hit位置和法线
 	FVector LocalHitPos = LocalRayOrigin + LocalRayDir * MinFaceDist;
-	OutHitVoxelPosition = HitVoxelPos;
+	OutHitVoxelPosition = HitVoxelPos + TilePosition;
 	OutHitPosition = LocalHitPos;
 	OutHitNormal = Sides[FindFaceID];
 	
 	return true;
-}
-
-void UVoxelTerrain::SerializeToMapData(UCVoxelMapData& MapData) const
-{
-	// 清空现有数据
-	MapData._AryTiles.RemoveAll();
-	
-	// 遍历所有Tile，序列化每个Tile的数据
-	for (const auto& TilePair : TileMap)
-	{
-		const FIntPoint& TileKey = TilePair.Key;
-		AVoxelTile* Tile = TilePair.Value;
-		
-		if (!IsValid(Tile))
-			continue;
-		
-		// 创建Tile数据
-		UCVoxelTileData TileData;
-		TileData.TileX = TileKey.X;
-		TileData.TileY = TileKey.Y;
-		
-		// 清空数组
-		TileData.AryVoxels.RemoveAll();
-		
-		// Tile尺寸
-		const int32 TileSizeX = AVoxelTile::TileSizeX;
-		const int32 TileSizeY = AVoxelTile::TileSizeY;
-		const int32 TileSizeZ = AVoxelTile::TileSizeZ;
-		const int32 TotalVoxels = TileSizeX * TileSizeY * TileSizeZ;
-		
-		// 遍历所有体素，提取Type和Layer
-		for (int32 Z = 0; Z < TileSizeZ; ++Z)
-		{
-			for (int32 Y = 0; Y < TileSizeY; ++Y)
-			{
-				for (int32 X = 0; X < TileSizeX; ++X)
-				{
-					UCVoxelData Voxel = Tile->GetVoxel(X, Y, Z);
-					
-					// 添加Type和Layer到数组
-					TileData.AryVoxels.Add(Voxel.Data);
-				}
-			}
-		}
-		
-		// 添加到MapData
-		MapData._AryTiles.Add(*(_UCEArray::TValue*)&TileData);
-	}
-}
-
-void UVoxelTerrain::DeserializeFromMapData(const UCVoxelMapData& MapData, UWorld* World)
-{
-	if (!World)
-		return;
-	
-	// 清空现有Tile
-	TileMap.Empty();
-	ActiveTiles.Empty();
-	
-	// 遍历所有Tile数据
-	int32 TileCount = MapData._AryTiles.GetSize();
-	for (int32 i = 0; i < TileCount; ++i)
-	{
-		UCVoxelTileData& TileData = (UCVoxelTileData&)MapData._AryTiles.GetAt(i);
-		
-		// 获取或创建Tile
-		AVoxelTile* Tile = GetTile(TileData.TileX, TileData.TileY, World, true);
-		if (!Tile)
-			continue;
-		
-		// Tile尺寸
-		const int32 TileSizeX = AVoxelTile::TileSizeX;
-		const int32 TileSizeY = AVoxelTile::TileSizeY;
-		const int32 TileSizeZ = AVoxelTile::TileSizeZ;
-		const int32 TotalVoxels = TileSizeX * TileSizeY * TileSizeZ;
-		
-		// 检查数据大小
-		if (TileData.AryVoxels.GetSize() != TotalVoxels)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::DeserializeFromMapData: Tile data size mismatch for Tile(%d,%d)"), 
-				TileData.TileX, TileData.TileY);
-			continue;
-		}
-		
-		// 遍历所有体素，设置Type和Layer
-		int32 VoxelIndex = 0;
-		for (int32 Z = 0; Z < TileSizeZ; ++Z)
-		{
-			for (int32 Y = 0; Y < TileSizeY; ++Y)
-			{
-				for (int32 X = 0; X < TileSizeX; ++X)
-				{
-					// 获取Type和Layer
-					UCVoxelData Type;
-					Type.Data = TileData.AryVoxels.GetAt(VoxelIndex);
-					
-					// 设置体素（不立即更新网格，最后统一更新）
-					Tile->SetVoxel(X, Y, Z, Type.Type, Type.Layer, false);
-					
-					++VoxelIndex;
-				}
-			}
-		}
-		
-		// 更新网格
-		Tile->UpdateMesh(true);
-		
-		// 激活Tile
-		FIntPoint TileKey = GetTileKey(TileData.TileX, TileData.TileY);
-		ActiveTiles.Add(TileKey);
-		Tile->SetActive(true);
-	}
 }

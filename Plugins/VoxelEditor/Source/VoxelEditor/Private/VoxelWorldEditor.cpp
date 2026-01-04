@@ -19,12 +19,17 @@ purpose:	AVoxelWorldEditor - 编辑器专用体素世界类实现
 #include "Modules/ModuleManager.h"
 #endif
 
+FString AVoxelWorldEditor::GetVoxelWorldMapsDirectory()
+{
+	return FPaths::ProjectDir() / TEXT("ExternalData/VoxelWorld/World");
+}
+
 AVoxelWorldEditor::AVoxelWorldEditor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITOR
-	// 使用 ProjectContentDir 作为基础路径（编辑器模式下可读写）
-	FString MapsDir = FPaths::ProjectContentDir() / TEXT("VoxelWorld/World");
+	// 使用 ExternalData 目录作为基础路径
+	FString MapsDir = GetVoxelWorldMapsDirectory();
 	FString MapFile = MapsDir / TEXT("AllMaps.wjson");
 	
 	// 确保目录存在

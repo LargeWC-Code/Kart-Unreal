@@ -3,6 +3,11 @@
 #include "CoreMinimal.h"  // For VOXELCORE_API (defined by build system)
 #include "ucgamebase.h"  // For UCString, UCEArray, etc. from MagicXCore
 
+// Tile尺寸宏定义（用于所有Tile相关计算）
+#define VOXEL_TILE_SIZE_X 32
+#define VOXEL_TILE_SIZE_Y 32
+#define VOXEL_TILE_SIZE_Z 64
+
 struct VOXELCORE_API UCVoxelPrefabData
 {
 	UCString		Name;
@@ -13,8 +18,8 @@ SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelPrefabData, UCVoxelPrefabData, ucTRUE);
 
 enum UCVoxelData_Layer
 {
-	UCVoxelData_Layer_Null = 0xFF,
-	UCVoxelData_Layer_Ground = 0,
+	UCVoxelData_Layer_Null = 0,
+	UCVoxelData_Layer_Ground,
 	UCVoxelData_Layer_Water
 };
 

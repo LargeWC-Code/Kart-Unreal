@@ -13,7 +13,7 @@ purpose:	VoxelTerrain - 体素地形渲染类，参考UCPixelWorld实现
 
 // 前向声明
 class AVoxelTile;
-
+struct UCVoxelMapData;
 // 顶点数据结构（用于自定义shader）
 USTRUCT()
 struct VOXELCORE_API FVoxelVertex
@@ -83,6 +83,7 @@ public:
 	 * @param TileX, TileY 地块坐标
 	 * @param World 世界对象（用于创建和销毁Actor）
 	 * @param bActive 是否激活
+	 * @param MapData 可选的地图数据（如果提供，将从地图数据中加载TileData）
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
 	void SetTileActive(int32 TileX, int32 TileY, UWorld* World, bool bActive);
@@ -103,7 +104,7 @@ public:
 	 * @param World 世界对象
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
-	void FillRegion(const FVector& Min, const FVector& Max, uint8 VoxelType, uint8 Layer = 0, UWorld* World = nullptr);
+	void FillRegion(const FVector& Min, const FVector& Max, uint8 VoxelType, uint8 Layer = 1, UWorld* World = nullptr);
 
 	/**
 	 * 在世界坐标位置设置/删除一个体素
@@ -114,7 +115,7 @@ public:
 	 * @return 是否成功设置
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
-	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 VoxelType, uint8 Layer = 0, UWorld* World = nullptr);
+	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 VoxelType, uint8 Layer = 1, UWorld* World = nullptr);
 
 	/**
 	 * 射线与Terrain的交集检测（参考UCPixelWorld::Intersect）
@@ -125,19 +126,6 @@ public:
 	 * @return 是否找到hit
 	 */
 	bool Intersect(const FVector& RayOrigin, const FVector& RayDirection, FIntVector& OutHitVoxelPosition, FVector& OutHitPosition, FVector& OutHitNormal) const;
-
-	/**
-	 * 序列化地形数据到 MapData
-	 * @param MapData 输出的地图数据
-	 */
-	void SerializeToMapData(struct UCVoxelMapData& MapData) const;
-
-	/**
-	 * 从 MapData 反序列化地形数据
-	 * @param MapData 输入的地图数据
-	 * @param World 世界对象（用于创建Tile Actor）
-	 */
-	void DeserializeFromMapData(const struct UCVoxelMapData& MapData, UWorld* World);
 
 	// ========== 配置属性 ==========
 
