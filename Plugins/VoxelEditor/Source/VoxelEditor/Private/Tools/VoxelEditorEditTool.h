@@ -68,6 +68,7 @@ public:
 	virtual void Setup() override;
 	virtual void Render(IToolsContextRenderAPI* RenderAPI) override;
 	virtual void OnPropertyModified(UObject* PropertySet, FProperty* Property) override;
+	virtual void OnTick(float DeltaTime) override;
 
 	/** IClickDragBehaviorTarget implementation */
 	virtual FInputRayHit CanBeginClickDragSequence(const FInputDeviceRay& PressPos) override;
@@ -91,6 +92,10 @@ protected:
 
 	static const int ShiftKeyModifierID = 1;	// identifier for Shift key
 	bool bShiftKeyDown = false;					// flag to track Shift key state
+	
+	/** Track key states for one-time trigger */
+	bool bSpaceKeyPressed = false;				// track Space key state
+	bool bDeleteKeyPressed = false;				// track Delete key state
 
 	/** Pending voxel placement position (for "摆放砖块" mode) */
 	FIntVector PendingPlacementPos;
@@ -115,12 +120,15 @@ protected:
 	FIntVector SelectedMinPos;
 	FIntVector SelectedMaxPos;
 	bool bHasSelectedRegion = false;
-	
+		
 	/** Helper function to convert voxel coordinates to world box */
 	TTuple<FVector, FVector> VoxelCoordsToWorldBox(const FIntVector& MinPos, const FIntVector& MaxPos, float VoxelSize) const;
 	
 	/** Update VoxelEditVolume position and size to match the drag selection box */
 	void UpdateVoxelEditVolume(UWorld* World, UVoxelTerrain* Terrain);
+	
+	/** Fill or delete selected voxels (bDelete: true=delete, false=fill) */
+	void ModifySelectedVoxels(bool bDelete);
 };
 
 

@@ -37,6 +37,12 @@ public:
 	/** Get the selected block type */
 	int32 GetSelectedBlockType() const;
 
+	/** Apply the edit volume (finds and applies the first available volume) */
+	void ApplyEditVolume() const;
+
+	/** Clear the edit volume region (sets voxels to type 0) */
+	void ClearEditVolume() const;
+
 private:
 	/** 工具包的主 Widget */
 	TSharedPtr<SWidget> ToolkitWidget;
@@ -80,12 +86,6 @@ private:
 
 	/** Get the edit tool widget */
 	TSharedPtr<SWidget> GetEditToolWidget() const;
-
-	/** Apply the edit volume (finds and applies the first available volume) */
-	void ApplyEditVolume() const;
-
-	/** Clear the edit volume region (sets voxels to type 0) */
-	void ClearEditVolume() const;
 
 	/** Clear the current tile (the tile containing the edit volume) */
 	void ClearCurrentTile() const;

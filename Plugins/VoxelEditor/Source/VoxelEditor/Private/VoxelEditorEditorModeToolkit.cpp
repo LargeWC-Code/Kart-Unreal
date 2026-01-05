@@ -640,19 +640,19 @@ void FVoxelEditorEditorModeToolkit::ApplyEditVolume() const
 	int ExtentY = FMath::RoundToInt(Dis.Y / 100.0f);
 	int ExtentZ = FMath::RoundToInt(Dis.Z / 100.0f);
 
-	if (ExtentX % 2 == 1)
+	//if (ExtentX % 2 == 1)
 	{
 		Min.X += 50.0f;
 		Max.X -= 50.0f;
 	}
 
-	if (ExtentY % 2 == 1)
+	//if (ExtentY % 2 == 1)
 	{
 		Min.Y += 50.0f;
 		Max.Y -= 50.0f;
 	}
 
-	if (ExtentZ % 2 == 1)
+	//if (ExtentZ % 2 == 1)
 	{
 		Min.Z += 50.0f;
 		Max.Z -= 50.0f;
@@ -725,19 +725,19 @@ void FVoxelEditorEditorModeToolkit::ClearEditVolume() const
 	int ExtentY = FMath::RoundToInt(Dis.Y / 100.0f);
 	int ExtentZ = FMath::RoundToInt(Dis.Z / 100.0f);
 
-	if (ExtentX % 2 == 1)
+	//if (ExtentX % 2 == 1)
 	{
 		Min.X += 50.0f;
 		Max.X -= 50.0f;
 	}
 
-	if (ExtentY % 2 == 1)
+	//if (ExtentY % 2 == 1)
 	{
 		Min.Y += 50.0f;
 		Max.Y -= 50.0f;
 	}
 
-	if (ExtentZ % 2 == 1)
+	//if (ExtentZ % 2 == 1)
 	{
 		Min.Z += 50.0f;
 		Max.Z -= 50.0f;

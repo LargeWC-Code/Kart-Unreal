@@ -14,6 +14,15 @@
 #include "VoxelEditVolume.h"
 #include "Editor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "InputCoreTypes.h"
+#include "Input/Events.h"
+
+#if PLATFORM_WINDOWS
+#include "Windows/WindowsPlatformApplicationMisc.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <Windows.h>
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif
 
 // for raycast into World
 #include "Engine/World.h"
@@ -84,6 +93,8 @@ void UVoxelEditorEditTool::Setup()
 	bHasSelectedRegion = false;
 	SelectedMinPos = FIntVector::ZeroValue;
 	SelectedMaxPos = FIntVector::ZeroValue;
+	bSpaceKeyPressed = false;
+	bDeleteKeyPressed = false;
 }
 
 
@@ -199,6 +210,7 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		// 保存第一个点击到的盒子的碰撞面，拖动过程中使用这个面来判断碰撞，不再检测新的碰撞盒子
 		// 使用体素坐标位置和整数法线方向
 		DragStartHitPos = HitVoxelPos;
+		DragEndPos = HitVoxelPos;
 		DragStartHitNormal = FIntVector(
 			FMath::RoundToInt(HitNormal.X),
 			FMath::RoundToInt(HitNormal.Y),
@@ -206,7 +218,8 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		);
 		bHasDragStartPlane = true;
 		
-		UE_LOG(LogTemp, Log, TEXT("Started drag selection at: (%d, %d, %d)"), HitVoxelPos.X, HitVoxelPos.Y, HitVoxelPos.Z);
+		// 更新 VoxelEditVolume 的位置和大小以匹配选择框
+		UpdateVoxelEditVolume(WorldEditor->GetWorld(), Terrain);
 	}
 	else if (BlockType == VOXEL_BLOCK_TYPE_PLACE)
 	{
@@ -249,79 +262,149 @@ void UVoxelEditorEditTool::OnClickDrag(const FInputDeviceRay& DragPos)
 		// Get the editor mode to access VoxelWorldEditor
 		UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();
 		if (!VoxelMode)
-		{
 			return;
-		}
 
-		// Get VoxelWorldEditor instance
 		AVoxelWorldEditor* WorldEditor = VoxelMode->GetVoxelWorldEditorInstance();
 		if (!WorldEditor || !IsValid(WorldEditor))
-		{
 			return;
-		}
 
-		// Get Terrain
 		UVoxelTerrain* Terrain = WorldEditor->GetTerrain();
 		if (!Terrain)
-		{
 			return;
-		}
 
 		// 使用第一个点击盒子的碰撞面来判断碰撞，不再检测新的碰撞盒子
 		if (bHasDragStartPlane)
 		{
-			// 计算射线与保存的碰撞面的交点
-			// 平面方程: Normal · (P - PointOnPlane) = 0
-			// 射线方程: P = Origin + t * Direction
-			// 求解 t: t = -Normal · (Origin - PointOnPlane) / (Normal · Direction)
+			// 检查是否按Ctrl键（高度编辑模式，需要已有选择区域）
+			FModifierKeysState ModifierKeys = FSlateApplication::Get().GetModifierKeys();
+			bool bCtrlDown = ModifierKeys.IsControlDown();
+
 			const float VoxelSize = Terrain->VoxelSize;
 			const int32 HalfTileSizeX = VOXEL_TILE_SIZE_X / 2;
 			const int32 HalfTileSizeY = VOXEL_TILE_SIZE_Y / 2;
 			const int32 HalfTileSizeZ = VOXEL_TILE_SIZE_Z / 2;
-			
+
 			// 将体素坐标转换为世界坐标
 			FVector PointOnPlane = FVector(
 				(DragStartHitPos.X - HalfTileSizeX) * VoxelSize,
 				(DragStartHitPos.Y - HalfTileSizeY) * VoxelSize,
 				(DragStartHitPos.Z - HalfTileSizeZ) * VoxelSize
 			);
-			
+
 			// 将整数法线转换为向量
 			FVector PlaneNormal = FVector(
 				(float)DragStartHitNormal.X,
 				(float)DragStartHitNormal.Y,
 				(float)DragStartHitNormal.Z
 			).GetSafeNormal();
-			
+
 			FVector RayOrigin = DragPos.WorldRay.Origin;
-			FVector RayDirection = DragPos.WorldRay.Direction;
-			
+			FVector RayDirection = DragPos.WorldRay.Direction.GetSafeNormal(); // 确保归一化
+			// 检查射线是否与平面平行
 			float Denom = FVector::DotProduct(PlaneNormal, RayDirection);
-			
-			// 检查射线是否与平面平行（分母接近零）
-			if (FMath::Abs(Denom) > 0.0001f)
+			if (FMath::Abs(Denom) <= 0.0001f)
+				return;
+
+			int32 PlaneNormalX = ucMAX(DragStartHitNormal.X, 0);
+			int32 PlaneNormalY = ucMAX(DragStartHitNormal.Y, 0);
+			int32 PlaneNormalZ = ucMAX(DragStartHitNormal.Z, 0);
+			// 使用Unreal的API计算射线与平面的交点
+			FPlane Plane(PointOnPlane + FVector(PlaneNormalX, PlaneNormalY, PlaneNormalZ) * VoxelSize, PlaneNormal);
+
+			// 计算交点
+			FVector IntersectionPoint = FMath::RayPlaneIntersection(RayOrigin, RayDirection, Plane);
+
+			// 检查交点是否在射线的正方向上
+			FVector ToMainIntersection = IntersectionPoint - RayOrigin;
+			float T = FVector::DotProduct(ToMainIntersection, RayDirection);
+
+			if (T < 0.0f)
+				return;
+
+			if (bCtrlDown)
 			{
-				FVector OriginToPlane = RayOrigin - PointOnPlane;
-				float T = -FVector::DotProduct(PlaneNormal, OriginToPlane) / Denom;
-				
-				// 只考虑正向的交点
-				if (T >= 0.0f)
+				// Ctrl键按下：高度编辑模式
+				// 找到法线方向的主要轴
+				FVector AbsNormal = PlaneNormal.GetAbs();
+				int32 MainAxis = 0;
+				if (AbsNormal.Y > AbsNormal.X)
+					MainAxis = (AbsNormal.Z > AbsNormal.Y) ? 2 : 1;
+				else
+					MainAxis = (AbsNormal.Z > AbsNormal.X) ? 2 : 0;
+
+				// 找到另外两个轴作为垂直平面的法线方向（垂直于MainAxis的两个轴）
+				int32 Axis1 = (MainAxis + 1) % 3;  // 第一个垂直轴
+				int32 Axis2 = (MainAxis + 2) % 3;  // 第二个垂直轴
+
+				// 创建垂直于MainAxis的平面，通过初始点击的体素位置
+				FVector BaseWorldPos = FVector(
+					(DragStartPos.X - HalfTileSizeX) * VoxelSize,
+					(DragStartPos.Y - HalfTileSizeY) * VoxelSize,
+					(DragStartPos.Z - HalfTileSizeZ) * VoxelSize
+				);
+
+				// 尝试第一个垂直平面（法线沿Axis1方向）
+				FVector PerpPlaneNormal1 = FVector::ZeroVector;
+				PerpPlaneNormal1[Axis1] = 1.0f;
+				FPlane PerpPlane1(BaseWorldPos, PerpPlaneNormal1);
+
+				FVector MouseIntersectionPoint;
+				bool bFoundIntersection = false;
+
+				// 检查第一个平面是否与射线相交
+				float Denom1 = FVector::DotProduct(PerpPlaneNormal1, RayDirection);
+				if (FMath::Abs(Denom1) > 0.0001f)
 				{
-					FVector IntersectionPoint = RayOrigin + RayDirection * T;
-					
-					// 将世界坐标转换为voxel坐标
-					// 根据 VoxelCoordsToWorldBox 的反向转换公式: VoxelPos = WorldPos / VoxelSize + VOXEL_TILE_SIZE / 2
-					DragEndPos = FIntVector(
-						FMath::RoundToInt((IntersectionPoint.X) / VoxelSize + HalfTileSizeX),
-						FMath::RoundToInt((IntersectionPoint.Y) / VoxelSize + HalfTileSizeY),
-						FMath::RoundToInt((IntersectionPoint.Z) / VoxelSize + HalfTileSizeZ)
-					);
-					UE_LOG(LogTemp, VeryVerbose, TEXT("Drag end position (plane): (%d, %d, %d)"), DragEndPos.X, DragEndPos.Y, DragEndPos.Z);
-					
-					// 更新 VoxelEditVolume 的位置和大小以匹配黄色框
-					UpdateVoxelEditVolume(WorldEditor->GetWorld(), Terrain);
+					MouseIntersectionPoint = FMath::RayPlaneIntersection(RayOrigin, RayDirection, PerpPlane1);
+					FVector ToPerpIntersection = MouseIntersectionPoint - RayOrigin;
+					float T1 = FVector::DotProduct(ToPerpIntersection, RayDirection);
+					if (T1 >= 0.0f)
+						bFoundIntersection = true;
+				}
+
+				// 如果第一个平面平行，尝试第二个垂直平面（法线沿Axis2方向）
+				if (!bFoundIntersection)
+				{
+					FVector PerpPlaneNormal2 = FVector::ZeroVector;
+					PerpPlaneNormal2[Axis2] = 1.0f;
+					FPlane PerpPlane2(BaseWorldPos, PerpPlaneNormal2);
+
+					float Denom2 = FVector::DotProduct(PerpPlaneNormal2, RayDirection);
+					if (FMath::Abs(Denom2) > 0.0001f)
+					{
+						MouseIntersectionPoint = FMath::RayPlaneIntersection(RayOrigin, RayDirection, PerpPlane2);
+						FVector ToPerpIntersection2 = MouseIntersectionPoint - RayOrigin;
+						float T2 = FVector::DotProduct(ToPerpIntersection2, RayDirection);
+						if (T2 >= 0.0f)
+							bFoundIntersection = true;
+					}
+				}
+
+				if (bFoundIntersection)
+				{
+					// 将MouseIntersectionPoint投影到原始平面上，然后计算高度
+					FVector PointToPlane = MouseIntersectionPoint - PointOnPlane;
+					float Height = FVector::DotProduct(PointToPlane, PlaneNormal);
+					int32 HeightInt = FMath::RoundToInt(Height / VoxelSize);
+
+					// 保留其他两个轴的当前值，只修改法线方向的轴
+					DragEndPos[MainAxis] = DragStartPos[MainAxis] + HeightInt * DragStartHitNormal[MainAxis];
 				}
 			}
+			else
+			{
+				DragEndPos = FIntVector(
+					FMath::RoundToInt((IntersectionPoint.X - (1.0 - FMath::Abs(PlaneNormal.X)) * VoxelSize / 2) / VoxelSize + HalfTileSizeX) - PlaneNormalX,
+					FMath::RoundToInt((IntersectionPoint.Y - (1.0 - FMath::Abs(PlaneNormal.Y)) * VoxelSize / 2) / VoxelSize + HalfTileSizeY) - PlaneNormalY,
+					FMath::RoundToInt((IntersectionPoint.Z - (1.0 - FMath::Abs(PlaneNormal.Z)) * VoxelSize / 2) / VoxelSize + HalfTileSizeZ) - PlaneNormalZ
+				);
+
+				FIntVector IntDistance = DragEndPos - DragStartHitPos;
+				FVector Distance = FVector(IntDistance.X, IntDistance.Y, IntDistance.Z);
+			}
+
+			// 更新 VoxelEditVolume 的位置和大小以匹配选择框
+			UpdateVoxelEditVolume(WorldEditor->GetWorld(), Terrain);
 		}
 	}
 }
@@ -377,9 +460,6 @@ void UVoxelEditorEditTool::OnClickRelease(const FInputDeviceRay& ReleasePos)
 		);
 		bHasSelectedRegion = true;
 		bIsDragging = false;
-		UE_LOG(LogTemp, Log, TEXT("Ended drag selection from (%d, %d, %d) to (%d, %d, %d)"), 
-			DragStartPos.X, DragStartPos.Y, DragStartPos.Z,
-			DragEndPos.X, DragEndPos.Y, DragEndPos.Z);
 	}
 }
 
@@ -456,6 +536,84 @@ void UVoxelEditorEditTool::UpdateVoxelEditVolume(UWorld* World, UVoxelTerrain* T
 void UVoxelEditorEditTool::Render(IToolsContextRenderAPI* RenderAPI)
 {
 	// 不再绘制黄色线框
+}
+
+void UVoxelEditorEditTool::OnTick(float DeltaTime)
+{
+	UInteractiveTool::OnTick(DeltaTime);
+	
+	// 检查是否有选中的区域
+	if (!bHasSelectedRegion)
+	{
+		return;
+	}
+	
+	// 检测按键输入
+	if (!FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	
+	// 使用平台API检测按键状态
+	// 注意：这种方法在Windows上有效，其他平台可能需要不同的实现
+	bool bSpaceCurrentlyPressed = false;
+	bool bDeleteCurrentlyPressed = false;
+	
+#if PLATFORM_WINDOWS
+	// 使用Windows API检测按键
+	bSpaceCurrentlyPressed = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
+	bDeleteCurrentlyPressed = (GetAsyncKeyState(VK_DELETE) & 0x8000) != 0;
+#else
+	// 其他平台的实现
+	// 暂时使用 FSlateApplication 的方法（如果可用）
+	FSlateApplication& SlateApp = FSlateApplication::Get();
+	// 这里可以添加其他平台的实现
+#endif
+	
+	// 检测 Space 键（填充）- 只在按键从释放变为按下时触发一次
+	if (bSpaceCurrentlyPressed && !bSpaceKeyPressed)
+	{
+		ModifySelectedVoxels(false); // false = fill
+	}
+	bSpaceKeyPressed = bSpaceCurrentlyPressed;
+	
+	// 检测 Delete 键（删除）- 只在按键从释放变为按下时触发一次
+	if (bDeleteCurrentlyPressed && !bDeleteKeyPressed)
+	{
+		ModifySelectedVoxels(true); // true = delete
+	}
+	bDeleteKeyPressed = bDeleteCurrentlyPressed;
+}
+
+void UVoxelEditorEditTool::ModifySelectedVoxels(bool bDelete)
+{
+	if (!bHasSelectedRegion)
+	{
+		return;
+	}
+	
+	// Get the editor mode to access Toolkit
+	UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();
+	if (!VoxelMode)
+	{
+		return;
+	}
+
+	TSharedPtr<FVoxelEditorEditorModeToolkit> Toolkit = VoxelMode->GetToolkit();
+	if (!Toolkit.IsValid())
+	{
+		return;
+	}
+	
+	// 调用 Toolkit 的函数：填充或删除
+	if (bDelete)
+	{
+		Toolkit->ClearEditVolume();
+	}
+	else
+	{
+		Toolkit->ApplyEditVolume();
+	}
 }
 
 

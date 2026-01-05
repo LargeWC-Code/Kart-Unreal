@@ -112,10 +112,11 @@ public:
 	 * @param VoxelType 体素类型（0表示删除）
 	 * @param Layer 体素层
 	 * @param World 世界对象
+	 * @param bUpdateMesh 是否立即更新网格
 	 * @return 是否成功设置
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
-	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 VoxelType, uint8 Layer = 1, UWorld* World = nullptr);
+	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 VoxelType, uint8 Layer = 1, UWorld* World = nullptr, bool bUpdateMesh = true);
 
 	/**
 	 * 射线与Terrain的交集检测（参考UCPixelWorld::Intersect）
