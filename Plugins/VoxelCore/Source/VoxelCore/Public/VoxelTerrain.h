@@ -107,16 +107,20 @@ public:
 	void FillRegion(const FVector& Min, const FVector& Max, uint8 VoxelType, uint8 Layer = 1, UWorld* World = nullptr);
 
 	/**
-	 * 在世界坐标位置设置/删除一个体素
+	 * 在世界坐标位置设置体素（支持砖块类型和旋转）
 	 * @param WorldPosition 世界坐标位置（厘米）
-	 * @param VoxelType 体素类型（0表示删除）
+	 * @param TextureID 纹理ID（0表示删除）
 	 * @param Layer 体素层
+	 * @param BlockType 砖块类型（0=方块, 1=斜面, 2=三角斜面）
+	 * @param RotationX 旋转X (0-3，对应0°, 90°, 180°, 270°)
+	 * @param RotationY 旋转Y (0-3)
+	 * @param RotationZ 旋转Z (0-3)
 	 * @param World 世界对象
 	 * @param bUpdateMesh 是否立即更新网格
 	 * @return 是否成功设置
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
-	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 VoxelType, uint8 Layer = 1, UWorld* World = nullptr, bool bUpdateMesh = true);
+	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 TextureID = 0, uint8 Layer = 1, uint8 BlockType = 0, uint8 RotationX = 0, uint8 RotationY = 0, uint8 RotationZ = 0, UWorld* World = nullptr, bool bUpdateMesh = true);
 
 	/**
 	 * 射线与Terrain的交集检测（参考UCPixelWorld::Intersect）

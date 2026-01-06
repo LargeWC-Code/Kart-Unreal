@@ -234,7 +234,7 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		if (bDelete)
 		{
 			// Delete immediately on press (Shift key)
-			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, TargetWorld);
+			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, 0, 0, 0, 0, TargetWorld);
 			bHasPendingPlacement = false;
 		}
 		else
@@ -251,7 +251,37 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 			bHasPendingPlacement = true;
 		}
 	}
-	// TODO: Handle "摆放方斜面" and "摆放三角斜面" in the future
+	else if (BlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || BlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE)
+	{
+		// Check Shift key state for deletion (immediate deletion on press)
+		bool bDelete = false;
+		if (FSlateApplication::IsInitialized())
+		{
+			FModifierKeysState ModifierKeys = FSlateApplication::Get().GetModifierKeys();
+			bDelete = ModifierKeys.IsShiftDown();
+		}
+		
+		if (bDelete)
+		{
+			// Delete immediately on press (Shift key)
+			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, 0, 0, 0, 0, TargetWorld);
+			bHasPendingPlacement = false;
+		}
+		else
+		{
+			// For slope placement: show preview but don't place yet (will place on release)
+			// Calculate the adjacent voxel position in the direction of the normal
+			FIntVector VoxelWorldPos = HitVoxelPos;
+			VoxelWorldPos.X += FMath::RoundToInt(HitNormal.X);
+			VoxelWorldPos.Y += FMath::RoundToInt(HitNormal.Y);
+			VoxelWorldPos.Z += FMath::RoundToInt(HitNormal.Z);
+			
+			// Store the preview position and hit normal for rotation calculation
+			PendingPlacementPos = VoxelWorldPos;
+			PendingPlacementHitNormal = HitNormal;
+			bHasPendingPlacement = true;
+		}
+	}
 }
 
 void UVoxelEditorEditTool::OnClickDrag(const FInputDeviceRay& DragPos)
@@ -412,7 +442,7 @@ void UVoxelEditorEditTool::OnClickDrag(const FInputDeviceRay& DragPos)
 void UVoxelEditorEditTool::OnClickRelease(const FInputDeviceRay& ReleasePos)
 {
 	// Place the pending voxel if we have one
-	if (bHasPendingPlacement && CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE)
+	if (bHasPendingPlacement)
 	{
 		// Get the editor mode to access VoxelWorldEditor
 		UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();
@@ -435,12 +465,46 @@ void UVoxelEditorEditTool::OnClickRelease(const FInputDeviceRay& ReleasePos)
 			return;
 		}
 
-		// Place the voxel
-		Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, TargetWorld);
-		UE_LOG(LogTemp, Log, TEXT("Placed voxel at: (%d, %d, %d)"), PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z);
+		if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE)
+		{
+			// Place the voxel (cube)
+			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, UCVoxelBlockType_Cube, 0, 0, 0, TargetWorld);
+			UE_LOG(LogTemp, Log, TEXT("Placed cube voxel at: (%d, %d, %d)"), PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z);
+		}
+		else if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE)
+		{
+			// Place slope: calculate rotation based on the stored hit normal
+			// Rotation: 0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°
+			
+			uint8 BlockType = (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE) ? 
+				UCVoxelBlockType_SquareSlope : UCVoxelBlockType_TriangularSlope;
+			
+			// Calculate rotation from stored hit normal
+			// For slopes, we typically rotate around Z axis based on which face was hit
+			uint8 RotationX = 0;
+			uint8 RotationY = 0;
+			uint8 RotationZ = 0;
+			
+			// Simple rotation calculation: based on which axis the normal points most strongly
+			FVector AbsNormal = PendingPlacementHitNormal.GetAbs();
+			if (AbsNormal.X > AbsNormal.Y && AbsNormal.X > AbsNormal.Z)
+			{
+				// Normal points mainly in X direction
+				RotationZ = (PendingPlacementHitNormal.X > 0) ? 1 : 3;  // 90° or 270°
+			}
+			else if (AbsNormal.Y > AbsNormal.Z)
+			{
+				// Normal points mainly in Y direction
+				RotationZ = (PendingPlacementHitNormal.Y > 0) ? 0 : 2;  // 0° or 180°
+			}
+			// else: Z direction, keep rotation 0
+			
+			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, BlockType, RotationX, RotationY, RotationZ, TargetWorld);
+			UE_LOG(LogTemp, Log, TEXT("Placed slope voxel at: (%d, %d, %d), Type: %d, RotationZ: %d"), 
+				PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z, BlockType, RotationZ);
+		}
 		
 		// Keep the selection to show the placed voxel
-		// bHasPendingPlacement is cleared but bHasSelectedVoxel remains true
 		bHasPendingPlacement = false;
 	}
 	

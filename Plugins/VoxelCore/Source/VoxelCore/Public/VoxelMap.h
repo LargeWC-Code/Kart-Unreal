@@ -23,6 +23,14 @@ enum UCVoxelData_Layer
 	UCVoxelData_Layer_Water
 };
 
+// 砖块类型
+enum UCVoxelBlockType
+{
+	UCVoxelBlockType_Cube = 0,           // 方块
+	UCVoxelBlockType_SquareSlope = 1,    // 斜面
+	UCVoxelBlockType_TriangularSlope = 2 // 三角斜面
+};
+
 // Tile 数据：存储一个 Tile 的坐标和体素数据
 struct VOXELCORE_API UCVoxelData
 {
@@ -30,8 +38,10 @@ struct VOXELCORE_API UCVoxelData
 	{
 		struct
 		{
-			ucBYTE			Type;
-			ucBYTE			Layer;
+			ucBYTE			TextureID;		// 8位：纹理ID（原来的Type）
+			ucBYTE			LayerID;		// 8位：层
+			ucBYTE			Type;			// 2位：砖块类型（0=方块, 1=斜面, 2=三角斜面, 3=保留）
+			ucBYTE			RotationXYZ;	// 6位：旋转（X、Y、Z各2位，每个轴0-3对应0°, 90°, 180°, 270°）
 		};
 
 		ucDWORD				Data;
@@ -43,6 +53,36 @@ struct VOXELCORE_API UCVoxelData
 
 	UCVoxelData& operator =(ucCONST UCVoxelData&);
 };
+
+// 辅助宏和函数（用于位操作）
+// 旋转位域布局：RotationXYZ (6位)
+// Bits 0-1: RotationX (0-3)
+// Bits 2-3: RotationY (0-3)
+// Bits 4-5: RotationZ (0-3)
+
+// 获取旋转X (0-3)
+inline ucBYTE UCVoxelData_GetRotationX(ucCONST UCVoxelData& Voxel)
+{
+	return (ucBYTE)(Voxel.RotationXYZ & 0x03);
+}
+
+// 获取旋转Y (0-3)
+inline ucBYTE UCVoxelData_GetRotationY(ucCONST UCVoxelData& Voxel)
+{
+	return (ucBYTE)((Voxel.RotationXYZ >> 2) & 0x03);
+}
+
+// 获取旋转Z (0-3)
+inline ucBYTE UCVoxelData_GetRotationZ(ucCONST UCVoxelData& Voxel)
+{
+	return (ucBYTE)((Voxel.RotationXYZ >> 4) & 0x03);
+}
+
+// 设置旋转（X、Y、Z各0-3）
+inline ucVOID UCVoxelData_SetRotation(UCVoxelData& Voxel, ucBYTE RotationX, ucBYTE RotationY, ucBYTE RotationZ)
+{
+	Voxel.RotationXYZ = (RotationX & 0x03) | ((RotationY & 0x03) << 2) | ((RotationZ & 0x03) << 4);
+}
 
 SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelData, UCVoxelData, ucTRUE);
 

@@ -11,8 +11,10 @@ SCRIPT_IMPLEMENT_END(UCE_UCVoxelPrefabData)
 SCRIPT_IMPLEMENT_BEGIN(UCE_UCVoxelData, UCVoxelData)
 	SCRIPT_CONSTRUCT_0()
 	SCRIPT_CONSTRUCT_1(ucCONST UCE_UCVoxelData&)
-	SCRIPT_PROPERTY(UCE_INT, Type)
-	SCRIPT_PROPERTY(UCE_INT, Layer)
+	SCRIPT_PROPERTY(UCE_DWORD, TextureID)
+	SCRIPT_PROPERTY(UCE_DWORD, LayerID)
+	SCRIPT_PROPERTY(UCE_DWORD, Type)
+	SCRIPT_PROPERTY(UCE_DWORD, RotationXYZ)
 	SCRIPT_DECONSTRUCT();
 SCRIPT_IMPLEMENT_END(UCE_UCVoxelData)
 
@@ -207,10 +209,12 @@ ucVOID	UCVoxelMapManager::NewCurrentMap(UCSize Size)
 			TileData.AryVoxels.SetSize(TotalVoxels);
 
 			// 填充 VOXEL_TILE_SIZE_X*VOXEL_TILE_SIZE_Y*VOXEL_TILE_SIZE_Z = 65536 个 0（空体素）
-			// UCVoxelData 的默认值是 Type=0, Layer=UCVoxelData_Layer_Null
+			// UCVoxelData 的默认值
 			UCVoxelData EmptyVoxel;
-			EmptyVoxel.Type = 0;
-			EmptyVoxel.Layer = UCVoxelData_Layer_Null;
+			EmptyVoxel.TextureID = 0;
+			EmptyVoxel.LayerID = UCVoxelData_Layer_Null;
+			EmptyVoxel.Type = UCVoxelBlockType_Cube;
+			UCVoxelData_SetRotation(EmptyVoxel, 0, 0, 0);
 
 			for (ucINT i = 0; i < TotalVoxels; ++i)
 				TileData.AryVoxels[i] = EmptyVoxel.Data;

@@ -55,6 +55,19 @@ public:
 	void SetVoxel(int32 X, int32 Y, int32 Z, uint8 Type, uint8 Layer = 0, bool bUpdateMesh = true);
 
 	/**
+	 * 设置体素数据（支持砖块类型和旋转）
+	 * @param X, Y, Z 体素坐标（相对于地块，0-31, 0-31, 0-63）
+	 * @param TextureID 纹理ID
+	 * @param Layer 体素层
+	 * @param BlockType 砖块类型（0=方块, 1=斜面, 2=三角斜面）
+	 * @param RotationX 旋转X (0-3，对应0°, 90°, 180°, 270°)
+	 * @param RotationY 旋转Y (0-3)
+	 * @param RotationZ 旋转Z (0-3)
+	 * @param bUpdateMesh 是否立即更新网格
+	 */
+	void SetVoxelWithBlockType(int32 X, int32 Y, int32 Z, uint8 TextureID, uint8 Layer, uint8 BlockType, uint8 RotationX, uint8 RotationY, uint8 RotationZ, bool bUpdateMesh = true);
+
+	/**
 	 * 获取体素数据
 	 * @param X, Y, Z 体素坐标（相对于地块）
 	 * @return 体素数据，如果坐标无效返回空体素
@@ -128,6 +141,18 @@ private:
 	void ClearMeshData();
 	/** 构建网格数据 */
 	void BuildMeshData();
+	
+	/** 添加方斜面面（根据旋转） */
+	void AddSquareSlopeFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, uint8 RotationX, uint8 RotationY, uint8 RotationZ);
+	
+	/** 添加三角斜面面（根据旋转） */
+	void AddTriangularSlopeFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, uint8 RotationX, uint8 RotationY, uint8 RotationZ);
+	
+	/** 应用旋转变换到顶点 */
+	FVector ApplyRotation(const FVector& Vertex, uint8 RotationX, uint8 RotationY, uint8 RotationZ, const FVector& Center);
+	
+	/** 检查相邻斜面的面是否可以连接（如果连接则不应渲染该面） */
+	bool ShouldSkipSlopeFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, uint8 RotationZ, int32 AdjX, int32 AdjY, int32 AdjZ) const;
 
 	/** 为指定面添加顶点 */
 	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat = true);

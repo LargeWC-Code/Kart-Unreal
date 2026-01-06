@@ -99,6 +99,7 @@ protected:
 
 	/** Pending voxel placement position (for "摆放砖块" mode) */
 	FIntVector PendingPlacementPos;
+	FVector PendingPlacementHitNormal;  // Store the hit normal for slope rotation calculation
 	bool bHasPendingPlacement = false;
 	
 	/** Current block type for placement */
