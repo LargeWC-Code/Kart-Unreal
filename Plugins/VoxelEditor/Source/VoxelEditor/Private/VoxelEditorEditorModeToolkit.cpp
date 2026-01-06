@@ -17,7 +17,6 @@
 #include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Input/SComboBox.h"
 #include "Widgets/Colors/SColorBlock.h"
 #include "Styling/AppStyle.h"
 #include "Styling/SlateColor.h"
@@ -42,13 +41,6 @@ FVoxelEditorEditorModeToolkit::FVoxelEditorEditorModeToolkit()
 	CurrentMapHeight = 0;
 	bMapLoaded = false;
 	EditToolButtonStates.Empty();
-	
-	// 初始化地块种类选项
-	BlockTypeOptions = MakeShareable(new TArray<TSharedPtr<FString>>);
-	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Select Block"))));
-	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Place Block"))));
-	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Place Square Slope"))));
-	BlockTypeOptions->Add(MakeShareable(new FString(TEXT("Place Triangular Slope"))));
 	SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
 }
 
@@ -277,7 +269,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 				]
 			]
 			
-			// 地块种类选择下拉框
+			// 地块种类选择按钮组
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.Padding(0, 0, 0, 10)
@@ -293,38 +285,191 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 					.Text(NSLOCTEXT("VoxelEditor", "BlockTypeLabel", "地块种类:"))
 				]
 				
+				// Select Block 按钮
 				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.Padding(0, 5, 0, 5)
+				.AutoWidth()
+				.Padding(5, 5, 5, 5)
 				[
-					SAssignNew(BlockTypeComboBox, SComboBox<TSharedPtr<FString>>)
-					.OptionsSource(BlockTypeOptions.Get())
-					.OnGenerateWidget_Lambda([](TSharedPtr<FString> InOption)
-					{
-						return SNew(STextBlock).Text(FText::FromString(*InOption));
-					})
-					.OnSelectionChanged_Lambda([this](TSharedPtr<FString> NewSelection, ESelectInfo::Type)
-					{
-						if (NewSelection.IsValid() && BlockTypeOptions.IsValid())
-						{
-							int32 Index = BlockTypeOptions->Find(NewSelection);
-							if (Index != INDEX_NONE)
-							{
-								SelectedBlockTypeIndex = Index;
-								UE_LOG(LogTemp, Log, TEXT("Block type selected: %s (index: %d)"), **NewSelection, Index);
-							}
-						}
-					})
+					SNew(SBox)
+					.MinDesiredWidth(80.0f)
+					.MinDesiredHeight(30.0f)
 					[
-						SNew(STextBlock)
-						.Text_Lambda([this]()
-						{
-							if (BlockTypeOptions.IsValid() && BlockTypeOptions->IsValidIndex(SelectedBlockTypeIndex))
+						SNew(SOverlay)
+						// 背景颜色层
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SColorBlock)
+							.Color(MakeAttributeLambda([this]()
 							{
-								return FText::FromString(*(*BlockTypeOptions)[SelectedBlockTypeIndex]);
-							}
-							return FText::FromString(TEXT("Select Block"));
-						})
+								return SelectedBlockTypeIndex == VOXEL_BLOCK_TYPE_SELECT ? 
+									FLinearColor(0.2f, 0.5f, 0.8f, 1.0f) :  // 选中：蓝色背景
+									FLinearColor(0.15f, 0.15f, 0.15f, 1.0f); // 未选中：深灰背景
+							}))
+						]
+						// 按钮层 - 填充整个区域以扩大点击区域
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SButton)
+							.Text(NSLOCTEXT("VoxelEditor", "SelectBlock", "选择"))
+							.ButtonStyle(FAppStyle::Get(), "NoBorder")
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							.ContentPadding(FMargin(5.0f))
+							.OnClicked_Lambda([this]()
+							{
+								SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
+								UE_LOG(LogTemp, Log, TEXT("Block type selected: Select Block (index: %d)"), SelectedBlockTypeIndex);
+								// 刷新EditToolWidget和MainContentWidget以更新按钮状态
+								EditToolWidget.Reset();
+								MainContentWidget.Reset();
+								return FReply::Handled();
+							})
+						]
+					]
+				]
+				
+				// Place Block 按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 5, 5, 5)
+				[
+					SNew(SBox)
+					.MinDesiredWidth(80.0f)
+					.MinDesiredHeight(30.0f)
+					[
+						SNew(SOverlay)
+						// 背景颜色层
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SColorBlock)
+							.Color(MakeAttributeLambda([this]()
+							{
+								return SelectedBlockTypeIndex == VOXEL_BLOCK_TYPE_PLACE ? 
+									FLinearColor(0.2f, 0.5f, 0.8f, 1.0f) :  // 选中：蓝色背景
+									FLinearColor(0.15f, 0.15f, 0.15f, 1.0f); // 未选中：深灰背景
+							}))
+						]
+						// 按钮层 - 填充整个区域以扩大点击区域
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SButton)
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceBlock", "放置"))
+							.ButtonStyle(FAppStyle::Get(), "NoBorder")
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							.ContentPadding(FMargin(5.0f))
+							.OnClicked_Lambda([this]()
+							{
+								SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PLACE;
+								UE_LOG(LogTemp, Log, TEXT("Block type selected: Place Block (index: %d)"), SelectedBlockTypeIndex);
+								// 刷新EditToolWidget和MainContentWidget以更新按钮状态
+								EditToolWidget.Reset();
+								MainContentWidget.Reset();
+								return FReply::Handled();
+							})
+						]
+					]
+				]
+				
+				// Place Square Slope 按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 5, 5, 5)
+				[
+					SNew(SBox)
+					.MinDesiredWidth(80.0f)
+					.MinDesiredHeight(30.0f)
+					[
+						SNew(SOverlay)
+						// 背景颜色层
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SColorBlock)
+							.Color(MakeAttributeLambda([this]()
+							{
+								return SelectedBlockTypeIndex == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE ? 
+									FLinearColor(0.2f, 0.5f, 0.8f, 1.0f) :  // 选中：蓝色背景
+									FLinearColor(0.15f, 0.15f, 0.15f, 1.0f); // 未选中：深灰背景
+							}))
+						]
+						// 按钮层 - 填充整个区域以扩大点击区域
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SButton)
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceSquareSlope", "方斜面"))
+							.ButtonStyle(FAppStyle::Get(), "NoBorder")
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							.ContentPadding(FMargin(5.0f))
+							.OnClicked_Lambda([this]()
+							{
+								SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE;
+								UE_LOG(LogTemp, Log, TEXT("Block type selected: Place Square Slope (index: %d)"), SelectedBlockTypeIndex);
+								// 刷新EditToolWidget和MainContentWidget以更新按钮状态
+								EditToolWidget.Reset();
+								MainContentWidget.Reset();
+								return FReply::Handled();
+							})
+						]
+					]
+				]
+				
+				// Place Triangular Slope 按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 5, 5, 5)
+				[
+					SNew(SBox)
+					.MinDesiredWidth(80.0f)
+					.MinDesiredHeight(30.0f)
+					[
+						SNew(SOverlay)
+						// 背景颜色层
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SColorBlock)
+							.Color(MakeAttributeLambda([this]()
+							{
+								return SelectedBlockTypeIndex == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE ? 
+									FLinearColor(0.2f, 0.5f, 0.8f, 1.0f) :  // 选中：蓝色背景
+									FLinearColor(0.15f, 0.15f, 0.15f, 1.0f); // 未选中：深灰背景
+							}))
+						]
+						// 按钮层 - 填充整个区域以扩大点击区域
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SButton)
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceTriangularSlope", "三角斜面"))
+							.ButtonStyle(FAppStyle::Get(), "NoBorder")
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							.ContentPadding(FMargin(5.0f))
+							.OnClicked_Lambda([this]()
+							{
+								SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE;
+								UE_LOG(LogTemp, Log, TEXT("Block type selected: Place Triangular Slope (index: %d)"), SelectedBlockTypeIndex);
+								// 刷新EditToolWidget和MainContentWidget以更新按钮状态
+								EditToolWidget.Reset();
+								MainContentWidget.Reset();
+								return FReply::Handled();
+							})
+						]
 					]
 				]
 			]
