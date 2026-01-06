@@ -291,7 +291,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 				.Padding(5, 5, 5, 5)
 				[
 					SNew(SBox)
-					.MinDesiredWidth(80.0f)
+					.MinDesiredWidth(60.0f)
 					.MinDesiredHeight(30.0f)
 					[
 						SNew(SOverlay)
@@ -314,7 +314,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "SelectBlock", "选择"))
+							.Text(NSLOCTEXT("VoxelEditor", "SelectBlock", "Select"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -338,7 +338,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 				.Padding(5, 5, 5, 5)
 				[
 					SNew(SBox)
-					.MinDesiredWidth(80.0f)
+					.MinDesiredWidth(60.0f)
 					.MinDesiredHeight(30.0f)
 					[
 						SNew(SOverlay)
@@ -361,7 +361,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "PlaceBlock", "放置"))
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceBlock", "Place"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -385,7 +385,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 				.Padding(5, 5, 5, 5)
 				[
 					SNew(SBox)
-					.MinDesiredWidth(80.0f)
+					.MinDesiredWidth(60.0f)
 					.MinDesiredHeight(30.0f)
 					[
 						SNew(SOverlay)
@@ -408,7 +408,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "PlaceSquareSlope", "方斜面"))
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceSquareSlope", "Square"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -432,7 +432,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 				.Padding(5, 5, 5, 5)
 				[
 					SNew(SBox)
-					.MinDesiredWidth(80.0f)
+					.MinDesiredWidth(60.0f)
 					.MinDesiredHeight(30.0f)
 					[
 						SNew(SOverlay)
@@ -455,7 +455,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "PlaceTriangularSlope", "三角斜面"))
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceTriangularSlope", "Triangle"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
