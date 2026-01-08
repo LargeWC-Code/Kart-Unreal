@@ -128,7 +128,7 @@ static const FaceIndices TriSlopeComplementFaces[7] = {
 	// 4: Top (Z=1) - 不存在（被斜面替代）
 	{ {+7, +5, +6, -1}, 3 },
 	// 5: Bottom (Z=0) - 4个顶点（正方形）
-	{ {+0, +1, +2, +3}, 4 },
+	{ {+0, +3, +2, +1}, 4 },
 	// 6: Slope (斜面) 
 	{ {+0, +5, +7, -1}, 3 }
 };
@@ -137,18 +137,18 @@ static const FaceIndices TriSlopeComplementFaces[7] = {
 class FVoxelBlockShapeGenerator
 {
 public:
-	// 楔形体：12个方向（Yaw: 0-3, Roll: 0-2），方向索引 = Yaw * 3 + Roll
+	// 楔形体：12个方向（Yaw: 0-3, Pitch: 0-2），方向索引 = Yaw * 3 + Pitch
 	FaceIndices SlopeFaces[12][7];
 	
-	// 三角锥：8个方向（Yaw: 0-3, Roll: 0-1），方向索引 = Yaw * 2 + Roll
+	// 三角锥：8个方向（Yaw: 0-3, Pitch: 0-1），方向索引 = Yaw * 2 + Pitch
 	FaceIndices TriSlopeFaces[8][7];
 	
-	// 三角锥互补体：8个方向（Yaw: 0-3, Roll: 0-1），方向索引 = Yaw * 2 + Roll
+	// 三角锥互补体：8个方向（Yaw: 0-3, Pitch: 0-1），方向索引 = Yaw * 2 + Pitch
 	FaceIndices TriSlopeComplementFaces[8][7];
 	
 	FVoxelBlockShapeGenerator()
 	{
-		// 使用默认方向的静态数组作为基础（Yaw=0, Roll=0）
+		// 使用默认方向的静态数组作为基础（Yaw=0, Pitch=0）
 		// 生成所有旋转方向的顶点数据
 		GenerateAllSlopeOrientations();
 		GenerateAllTriSlopeOrientations();
@@ -156,6 +156,29 @@ public:
 	}
 
 private:
+	// 旋转顶点索引（绕Y轴旋转Pitch*90度）
+	// 顶点定义：0(0,0,0)前左下, 1(1,0,0)后左下, 2(1,1,0)后右下, 3(0,1,0)前右下
+	//          4(0,0,1)前左上, 5(1,0,1)后左上, 6(1,1,1)后右上, 7(0,1,1)前右上
+	// 绕Y轴旋转90度（从+Y方向看，逆时针）：(x,y,z) -> (z, y, 1-x)
+	// 绕Y轴旋转180度：(x,y,z) -> (1-x, y, 1-z)
+	int32 RotateVertexIndexByPitch(int32 VertexIndex, int32 Pitch) const
+	{
+		if (VertexIndex < 0 || VertexIndex >= 8)
+			return VertexIndex;
+		
+		// Pitch旋转映射表：绕Y轴旋转
+		// Pitch=0: 不旋转
+		// Pitch=1: 绕Y轴旋转90度 (0->4, 1->0, 2->3, 3->7, 4->5, 5->1, 6->2, 7->6)
+		// Pitch=2: 绕Y轴旋转180度 (0->5, 1->4, 2->7, 3->6, 4->1, 5->0, 6->3, 7->2)
+		static const int32 PitchMap[3][8] = {
+			{0, 1, 2, 3, 4, 5, 6, 7}, // Pitch=0: 不旋转
+			{4, 0, 3, 7, 5, 1, 2, 6}, // Pitch=1: 绕Y轴旋转90度
+			{5, 4, 7, 6, 1, 0, 3, 2}  // Pitch=2: 绕Y轴旋转180度
+		};
+		
+		return PitchMap[Pitch % 3][VertexIndex];
+	}
+	
 	// 旋转顶点索引（绕Z轴旋转Yaw*90度）
 	// 顶点定义：0(0,0,0)前左下, 1(1,0,0)后左下, 2(1,1,0)后右下, 3(0,1,0)前右下
 	//          4(0,0,1)前左上, 5(1,0,1)后左上, 6(1,1,1)后右上, 7(0,1,1)前右上
@@ -176,69 +199,77 @@ private:
 		return RotateMap[Yaw & 0x03][VertexIndex];
 	}
 	
-	// 变换面的顶点索引（应用Yaw旋转）
-	void TransformFace(FaceIndices& OutFace, const FaceIndices& InFace, int32 Yaw) const
+	// 变换面的顶点索引（先应用Pitch旋转，再应用Yaw旋转）
+	void TransformFace(FaceIndices& OutFace, const FaceIndices& InFace, int32 Yaw, int32 Pitch) const
 	{
 		OutFace.Count = InFace.Count;
 		for (int32 i = 0; i < 4; ++i)
 		{
 			if (InFace.Indices[i] >= 0)
-				OutFace.Indices[i] = RotateVertexIndex(InFace.Indices[i], Yaw);
+			{
+				// 先应用Pitch旋转（绕Y轴），再应用Yaw旋转（绕Z轴）
+				int32 PitchedIndex = RotateVertexIndexByPitch(InFace.Indices[i], Pitch);
+				OutFace.Indices[i] = RotateVertexIndex(PitchedIndex, Yaw);
+			}
 			else
 				OutFace.Indices[i] = -1;
 		}
 	}
 	
-	// 生成所有楔形体方向（12个方向：Yaw 0-3, Roll 0-2）
+	// 生成所有楔形体方向（12个方向：Yaw 0-3, Pitch 0-2）
 	void GenerateAllSlopeOrientations()
 	{
 		for (int32 Yaw = 0; Yaw < 4; ++Yaw)
 		{
-			for (int32 Roll = 0; Roll < 3; ++Roll)
+			for (int32 Pitch = 0; Pitch < 3; ++Pitch)
 			{
-				int32 DirectionIndex = Yaw * 3 + Roll;
+				int32 DirectionIndex = Yaw * 3 + Pitch;
 				
 				// 使用默认方向的 SlopeFaces 作为基础
-				// 目前所有Roll值都使用相同的基础形状，后续可根据需要调整Roll的变换
+				// Pitch=0: 当前默认方向
+				// Pitch=1: 绕Y轴旋转90度后，再绕Yaw旋转
+				// Pitch=2: 绕Y轴旋转180度后，再绕Yaw旋转
 				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
 				{
-					TransformFace(SlopeFaces[DirectionIndex][FaceIdx], ::SlopeFaces[FaceIdx], Yaw);
+					TransformFace(SlopeFaces[DirectionIndex][FaceIdx], ::SlopeFaces[FaceIdx], Yaw, Pitch);
 				}
 			}
 		}
 	}
 	
-	// 生成所有三角锥方向（8个方向：Yaw 0-3, Roll 0-1）
+	// 生成所有三角锥方向（8个方向：Yaw 0-3, Pitch 0-1）
 	void GenerateAllTriSlopeOrientations()
 	{
 		for (int32 Yaw = 0; Yaw < 4; ++Yaw)
 		{
-			for (int32 Roll = 0; Roll < 2; ++Roll)
+			for (int32 Pitch = 0; Pitch < 2; ++Pitch)
 			{
-				int32 DirectionIndex = Yaw * 2 + Roll;
+				int32 DirectionIndex = Yaw * 2 + Pitch;
 				
 				// 使用默认方向的 TriSlopeFaces 作为基础
+				// 对于三角锥，Pitch 只有 0 和 1，Pitch=1 表示绕Y轴旋转90度
 				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
 				{
-					TransformFace(TriSlopeFaces[DirectionIndex][FaceIdx], ::TriSlopeFaces[FaceIdx], Yaw);
+					TransformFace(TriSlopeFaces[DirectionIndex][FaceIdx], ::TriSlopeFaces[FaceIdx], Yaw, Pitch);
 				}
 			}
 		}
 	}
 	
-	// 生成所有三角锥互补体方向（8个方向：Yaw 0-3, Roll 0-1）
+	// 生成所有三角锥互补体方向（8个方向：Yaw 0-3, Pitch 0-1）
 	void GenerateAllTriSlopeComplementOrientations()
 	{
 		for (int32 Yaw = 0; Yaw < 4; ++Yaw)
 		{
-			for (int32 Roll = 0; Roll < 2; ++Roll)
+			for (int32 Pitch = 0; Pitch < 2; ++Pitch)
 			{
-				int32 DirectionIndex = Yaw * 2 + Roll;
+				int32 DirectionIndex = Yaw * 2 + Pitch;
 				
 				// 使用默认方向的 TriSlopeComplementFaces 作为基础
+				// 对于三角锥互补体，Pitch 只有 0 和 1，Pitch=1 表示绕Y轴旋转90度
 				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
 				{
-					TransformFace(TriSlopeComplementFaces[DirectionIndex][FaceIdx], ::TriSlopeComplementFaces[FaceIdx], Yaw);
+					TransformFace(TriSlopeComplementFaces[DirectionIndex][FaceIdx], ::TriSlopeComplementFaces[FaceIdx], Yaw, Pitch);
 				}
 			}
 		}
