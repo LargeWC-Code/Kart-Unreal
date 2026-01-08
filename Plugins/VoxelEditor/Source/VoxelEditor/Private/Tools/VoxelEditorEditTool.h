@@ -106,6 +106,12 @@ protected:
 	/** Current block type for placement */
 	int32 CurrentBlockType = VOXEL_BLOCK_TYPE_SELECT;
 	
+	/** Paint brush: last painted voxel position */
+	FIntVector LastPaintVoxelPos;
+	bool bIsPainting = false;  // True when mouse is down and painting mode is active
+	FVector PaintHitNormal;  // Store hit normal for painting
+	FVector PaintRayDirection;  // Store ray direction for painting
+	
 	/** Drag start position (for drag selection) */
 	FIntVector DragStartPos;
 	bool bIsDragging = false;
@@ -131,6 +137,11 @@ protected:
 	
 	/** Fill or delete selected voxels (bDelete: true=delete, false=fill) */
 	void ModifySelectedVoxels(bool bDelete);
+	
+	/** Place a voxel at the given position with calculated rotation (helper function) */
+	void PlaceVoxelAtPosition(UVoxelTerrain* Terrain, const FIntVector& VoxelWorldPos, const FVector& HitNormal, const FVector& RayDirection, int32 BlockType);
+
+	void OnPlace(const FInputDeviceRay& DragPos, UVoxelTerrain* Terrain, int32 BlockType, FIntVector HitVoxelPos, FVector HitPos, FVector HitNormal);
 };
 
 

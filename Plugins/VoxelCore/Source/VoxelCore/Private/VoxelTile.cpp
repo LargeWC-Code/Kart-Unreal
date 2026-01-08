@@ -762,8 +762,6 @@ void AVoxelTile::BuildMeshData()
 
 				// 获取体素类型和旋转
 				uint8 BlockType = Voxel.Type & 0x03;
-				uint8 Roll = UCVoxelData_GetRoll(Voxel);
-				uint8 Yaw = UCVoxelData_GetYaw(Voxel);
 				
 				// 根据图素类型直接调用对应的Add函数
 				switch (BlockType)
