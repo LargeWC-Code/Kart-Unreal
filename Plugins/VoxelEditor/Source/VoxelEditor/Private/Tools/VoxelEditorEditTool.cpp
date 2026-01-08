@@ -234,7 +234,7 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		if (bDelete)
 		{
 			// Delete immediately on press (Shift key)
-			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, 0, 0, 0, 0, TargetWorld);
+			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, 0, 0, 0, TargetWorld);
 			bHasPendingPlacement = false;
 		}
 		else
@@ -251,7 +251,7 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 			bHasPendingPlacement = true;
 		}
 	}
-	else if (BlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || BlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE)
+	else if (BlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || BlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE || BlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT)
 	{
 		// Check Shift key state for deletion (immediate deletion on press)
 		bool bDelete = false;
@@ -264,7 +264,7 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		if (bDelete)
 		{
 			// Delete immediately on press (Shift key)
-			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, 0, 0, 0, 0, TargetWorld);
+			Terrain->SetVoxelAtWorldPosition(HitVoxelPos, 0, 0, 0, 0, 0, TargetWorld);
 			bHasPendingPlacement = false;
 		}
 		else
@@ -276,9 +276,10 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 			VoxelWorldPos.Y += FMath::RoundToInt(HitNormal.Y);
 			VoxelWorldPos.Z += FMath::RoundToInt(HitNormal.Z);
 			
-			// Store the preview position and hit normal for rotation calculation
+			// Store the preview position, hit normal (bottom face), and ray direction (front face direction) for rotation calculation
 			PendingPlacementPos = VoxelWorldPos;
 			PendingPlacementHitNormal = HitNormal;
+			PendingPlacementRayDirection = PressPos.WorldRay.Direction.GetSafeNormal();
 			bHasPendingPlacement = true;
 		}
 	}
@@ -468,40 +469,124 @@ void UVoxelEditorEditTool::OnClickRelease(const FInputDeviceRay& ReleasePos)
 		if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE)
 		{
 			// Place the voxel (cube)
-			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, UCVoxelBlockType_Cube, 0, 0, 0, TargetWorld);
+			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, UCVoxelBlockType_Cube, 0, 0, TargetWorld);
 			UE_LOG(LogTemp, Log, TEXT("Placed cube voxel at: (%d, %d, %d)"), PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z);
 		}
-		else if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE)
+		else if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE || CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT)
 		{
-			// Place slope: calculate rotation based on the stored hit normal
-			// Rotation: 0 = 0°, 1 = 90°, 2 = 180°, 3 = 270°
+			// Place slope: calculate rotation based on hit normal (bottom face) and ray direction (front face direction)
+			// 方斜面：正面正对点击方向（射线方向的反方向），底面是被点击的面（HitNormal方向）
 			
-			uint8 BlockType = (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE) ? 
-				UCVoxelBlockType_SquareSlope : UCVoxelBlockType_TriangularSlope;
+			uint8 BlockType;
+			if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE)
+				BlockType = UCVoxelBlockType_SquareSlope;
+			else if (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE)
+				BlockType = UCVoxelBlockType_TriangularSlope;
+			else // VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT
+				BlockType = UCVoxelBlockType_TriangularComplement;
 			
-			// Calculate rotation from stored hit normal
-			// For slopes, we typically rotate around Z axis based on which face was hit
 			uint8 RotationX = 0;
 			uint8 RotationY = 0;
 			uint8 RotationZ = 0;
 			
-			// Simple rotation calculation: based on which axis the normal points most strongly
-			FVector AbsNormal = PendingPlacementHitNormal.GetAbs();
-			if (AbsNormal.X > AbsNormal.Y && AbsNormal.X > AbsNormal.Z)
-			{
-				// Normal points mainly in X direction
-				RotationZ = (PendingPlacementHitNormal.X > 0) ? 1 : 3;  // 90° or 270°
-			}
-			else if (AbsNormal.Y > AbsNormal.Z)
-			{
-				// Normal points mainly in Y direction
-				RotationZ = (PendingPlacementHitNormal.Y > 0) ? 0 : 2;  // 0° or 180°
-			}
-			// else: Z direction, keep rotation 0
+			// 1. 确定底面：HitNormal指向被点击面的方向
+			// 2. 确定正面：射线方向的反方向（因为射线是从相机指向物体的）
+			// 方斜面的正面是FaceIndex=3（Back面，面向-X方向），底面是FaceIndex=5（Bottom面，面向-Z方向）
+			// 根据HitNormal和RayDirection计算旋转
 			
-			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, BlockType, RotationX, RotationY, RotationZ, TargetWorld);
-			UE_LOG(LogTemp, Log, TEXT("Placed slope voxel at: (%d, %d, %d), Type: %d, RotationZ: %d"), 
-				PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z, BlockType, RotationZ);
+			// 将法线向量转换为最接近的面索引（用于确定底面）
+			FVector NormalizedHitNormal = PendingPlacementHitNormal.GetSafeNormal();
+			FVector NormalizedRayDir = -PendingPlacementRayDirection.GetSafeNormal(); // 取反，因为射线是从相机指向物体，而我们需要的是从物体指向相机的方向
+			
+			// 定义六个面的法向量（与FaceNormals一致）
+			FVector FaceNormals[6] = {
+				FVector( 0, -1,  0), // 0: Left (面向-Y方向)
+				FVector( 1,  0,  0), // 1: Front (面向+X方向)
+				FVector( 0,  1,  0), // 2: Right (面向+Y方向)
+				FVector(-1,  0,  0), // 3: Back (面向-X方向) - 这是方斜面的正面
+				FVector( 0,  0,  1), // 4: Top (面向+Z方向) - 这是方斜面的顶面
+				FVector( 0,  0, -1)  // 5: Bottom (面向-Z方向) - 这是方斜面的底面
+			};
+			
+			// 找到最接近HitNormal的面（底面）
+			int32 BottomFaceIndex = 5; // 默认为Bottom面
+			float MaxDotBottom = -1.0f;
+			for (int32 i = 0; i < 6; ++i)
+			{
+				float Dot = FVector::DotProduct(NormalizedHitNormal, FaceNormals[i]);
+				if (Dot > MaxDotBottom)
+				{
+					MaxDotBottom = Dot;
+					BottomFaceIndex = i;
+				}
+			}
+			
+			// 找到最接近RayDirection的面（正面，但不应该是Top/Bottom）
+			// 正面应该是侧面之一（0-3），不能是顶面或底面
+			int32 FrontFaceIndex = 3; // 默认Back面作为正面
+			float MaxDotFront = -1.0f;
+			for (int32 i = 0; i < 4; ++i) // 只考虑侧面（0-3）
+			{
+				float Dot = FVector::DotProduct(NormalizedRayDir, FaceNormals[i]);
+				if (Dot > MaxDotFront)
+				{
+					MaxDotFront = Dot;
+					FrontFaceIndex = i;
+				}
+			}
+			
+			// 根据底面和正面计算RotationZ
+			// 方斜面的斜面在顶面（FaceIndex=4），根据RotationZ决定斜面的方向
+			// RotationZ: 0=从-X到+X, 1=从-Y到+Y, 2=从+X到-X, 3=从+Y到-Y
+			
+			// 如果底面是Top或Bottom面，需要根据正面方向来确定RotationZ
+			if (BottomFaceIndex == 4 || BottomFaceIndex == 5)
+			{
+				// 底面是Top或Bottom，正面决定了斜面的方向
+				if (FrontFaceIndex == 0) // Left面（-Y方向）
+				{
+					RotationZ = 1; // 从-Y到+Y
+				}
+				else if (FrontFaceIndex == 1) // Front面（+X方向）
+				{
+					RotationZ = 0; // 从-X到+X
+				}
+				else if (FrontFaceIndex == 2) // Right面（+Y方向）
+				{
+					RotationZ = 3; // 从+Y到-Y
+				}
+				else // FrontFaceIndex == 3: Back面（-X方向）
+				{
+					RotationZ = 2; // 从+X到-X
+				}
+			}
+			else
+			{
+				// 底面是侧面，需要更复杂的计算
+				// 这里简化处理：根据正面方向
+				if (FrontFaceIndex == 0) // Left面
+				{
+					RotationZ = 1;
+				}
+				else if (FrontFaceIndex == 1) // Front面
+				{
+					RotationZ = 0;
+				}
+				else if (FrontFaceIndex == 2) // Right面
+				{
+					RotationZ = 3;
+				}
+				else // Back面
+				{
+					RotationZ = 2;
+				}
+			}
+			
+			// 计算YawRoll: Roll * 4 + Yaw
+			uint8 YawRoll = (RotationX & 0x03) * 4 + (RotationY & 0x03);
+			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, BlockType, RotationX & 0x03, RotationY & 0x03, TargetWorld);
+			UE_LOG(LogTemp, Log, TEXT("Placed slope voxel at: (%d, %d, %d), Type: %d, BottomFace: %d, FrontFace: %d, RotationZ: %d"), 
+				PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z, BlockType, BottomFaceIndex, FrontFaceIndex, RotationZ);
 		}
 		
 		// Keep the selection to show the placed voxel

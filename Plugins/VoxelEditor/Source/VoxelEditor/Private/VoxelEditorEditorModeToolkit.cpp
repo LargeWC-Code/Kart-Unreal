@@ -276,15 +276,6 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 			[
 				SNew(SHorizontalBox)
 				
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(0, 5, 5, 5)
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("VoxelEditor", "BlockTypeLabel", "地块种类:"))
-				]
-				
 				// Select Block 按钮
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
@@ -314,7 +305,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "SelectBlock", "Select"))
+							.Text(NSLOCTEXT("VoxelEditor", "SelectBlock", "选择"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -361,7 +352,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "PlaceBlock", "Place"))
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceBlock", "方块"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -408,7 +399,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "PlaceSquareSlope", "Square"))
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceSquareSlope", "斜楔"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -455,7 +446,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						.VAlign(VAlign_Fill)
 						[
 							SNew(SButton)
-							.Text(NSLOCTEXT("VoxelEditor", "PlaceTriangularSlope", "Triangle"))
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceTriangularSlope", "三角锥"))
 							.ButtonStyle(FAppStyle::Get(), "NoBorder")
 							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
@@ -464,6 +455,53 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 							{
 								SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE;
 								UE_LOG(LogTemp, Log, TEXT("Block type selected: Place Triangular Slope (index: %d)"), SelectedBlockTypeIndex);
+								// 刷新EditToolWidget和MainContentWidget以更新按钮状态
+								EditToolWidget.Reset();
+								MainContentWidget.Reset();
+								return FReply::Handled();
+							})
+						]
+					]
+				]
+				
+				// Place Triangular Complement 按钮
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 5, 5, 5)
+				[
+					SNew(SBox)
+					.MinDesiredWidth(60.0f)
+					.MinDesiredHeight(30.0f)
+					[
+						SNew(SOverlay)
+						// 背景颜色层
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SColorBlock)
+							.Color(MakeAttributeLambda([this]()
+							{
+								return SelectedBlockTypeIndex == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT ? 
+									FLinearColor(0.2f, 0.5f, 0.8f, 1.0f) :  // 选中：蓝色背景
+									FLinearColor(0.15f, 0.15f, 0.15f, 1.0f); // 未选中：深灰背景
+							}))
+						]
+						// 按钮层 - 填充整个区域以扩大点击区域
+						+ SOverlay::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SNew(SButton)
+							.Text(NSLOCTEXT("VoxelEditor", "PlaceTriangularComplement", "三角锥互补"))
+							.ButtonStyle(FAppStyle::Get(), "NoBorder")
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							.ContentPadding(FMargin(5.0f))
+							.OnClicked_Lambda([this]()
+							{
+								SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT;
+								UE_LOG(LogTemp, Log, TEXT("Block type selected: Place Triangular Complement (index: %d)"), SelectedBlockTypeIndex);
 								// 刷新EditToolWidget和MainContentWidget以更新按钮状态
 								EditToolWidget.Reset();
 								MainContentWidget.Reset();

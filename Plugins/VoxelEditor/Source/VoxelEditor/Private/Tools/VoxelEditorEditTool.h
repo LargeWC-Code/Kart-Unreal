@@ -99,7 +99,8 @@ protected:
 
 	/** Pending voxel placement position (for "摆放砖块" mode) */
 	FIntVector PendingPlacementPos;
-	FVector PendingPlacementHitNormal;  // Store the hit normal for slope rotation calculation
+	FVector PendingPlacementHitNormal;  // Store the hit normal for slope rotation calculation (the bottom face)
+	FVector PendingPlacementRayDirection;  // Store the ray direction for slope rotation calculation (the front face direction)
 	bool bHasPendingPlacement = false;
 	
 	/** Current block type for placement */

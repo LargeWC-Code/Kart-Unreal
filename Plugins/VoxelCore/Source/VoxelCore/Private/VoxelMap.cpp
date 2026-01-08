@@ -14,7 +14,7 @@ SCRIPT_IMPLEMENT_BEGIN(UCE_UCVoxelData, UCVoxelData)
 	SCRIPT_PROPERTY(UCE_DWORD, TextureID)
 	SCRIPT_PROPERTY(UCE_DWORD, LayerID)
 	SCRIPT_PROPERTY(UCE_DWORD, Type)
-	SCRIPT_PROPERTY(UCE_DWORD, RotationXYZ)
+	SCRIPT_PROPERTY(UCE_BYTE, YawRoll)
 	SCRIPT_DECONSTRUCT();
 SCRIPT_IMPLEMENT_END(UCE_UCVoxelData)
 
@@ -214,7 +214,7 @@ ucVOID	UCVoxelMapManager::NewCurrentMap(UCSize Size)
 			EmptyVoxel.TextureID = 0;
 			EmptyVoxel.LayerID = UCVoxelData_Layer_Null;
 			EmptyVoxel.Type = UCVoxelBlockType_Cube;
-			UCVoxelData_SetRotation(EmptyVoxel, 0, 0, 0);
+			UCVoxelData_SetYawAndRoll(EmptyVoxel, 0, 0);
 
 			for (ucINT i = 0; i < TotalVoxels; ++i)
 				TileData.AryVoxels[i] = EmptyVoxel.Data;

@@ -10,6 +10,9 @@
 
 class AVoxelWorldEditor;
 
+template<typename T>
+class SComboBox;
+
 /**
  * This FModeToolkit just creates a basic UI panel that allows various InteractiveTools to
  * be initialized, and a DetailsView used to show properties of the active Tool.
@@ -58,8 +61,10 @@ private:
 	/** Edit tool button states */
 	mutable TArray<bool> EditToolButtonStates;
 
-	/** Block type selected index */
+	/** Block type combo box options and selected index */
+	mutable TSharedPtr<TArray<TSharedPtr<FString>>> BlockTypeOptions;
 	mutable int32 SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
+	mutable TSharedPtr<class SComboBox<TSharedPtr<FString>>> BlockTypeComboBox;
 
 	/** Owning editor mode */
 	TWeakObjectPtr<UEdMode> OwningMode;
