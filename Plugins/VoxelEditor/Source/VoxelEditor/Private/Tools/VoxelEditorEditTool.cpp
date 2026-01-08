@@ -255,10 +255,12 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 	{
 		// Check Shift key state for deletion (immediate deletion on press)
 		bool bDelete = false;
+		bool bModifyRoll = false;
 		if (FSlateApplication::IsInitialized())
 		{
 			FModifierKeysState ModifierKeys = FSlateApplication::Get().GetModifierKeys();
 			bDelete = ModifierKeys.IsShiftDown();
+			bModifyRoll = ModifierKeys.IsControlDown();
 		}
 		
 		if (bDelete)
@@ -269,6 +271,94 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		}
 		else
 		{
+			// Check if we clicked on an existing voxel (not empty space)
+			// HitVoxelPos is in voxel world coordinates
+			// Calculate tile coordinates from voxel world coordinates (same as SetVoxelAtWorldPosition)
+			const int32 TileSizeX = VOXEL_TILE_SIZE_X;
+			const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
+			const int32 TileSizeZ = VOXEL_TILE_SIZE_Z;
+			const int32 HalfTileSizeX = TileSizeX / 2;
+			const int32 HalfTileSizeY = TileSizeY / 2;
+			const int32 HalfTileSizeZ = TileSizeZ / 2;
+			
+			auto FloorDiv = [](int32 Dividend, int32 Divisor) -> int32 {
+				if (Dividend >= 0)
+					return Dividend / Divisor;
+				else
+					return (Dividend - Divisor + 1) / Divisor;
+			};
+			
+			int32 TileX = FloorDiv(HitVoxelPos.X, TileSizeX);
+			int32 TileY = FloorDiv(HitVoxelPos.Y, TileSizeY);
+			
+			AVoxelTile* HitTile = Terrain->GetTile(TileX, TileY, TargetWorld, false);
+			if (HitTile && HitTile->IsActive())
+			{
+				// Get tile world position (same as SetVoxelAtWorldPosition)
+				// Tile world grid position = TileX * TileSizeX, TileY * TileSizeY, 0
+				FIntVector TileWorldPos(TileX * TileSizeX, TileY * TileSizeY, 0);
+				
+				// Convert to local tile coordinates
+				FIntVector LocalPos = HitVoxelPos - TileWorldPos;
+				
+				// Convert to storage coordinates (0 to 31 for X/Y, 0 to 63 for Z)
+				int32 StorageX = LocalPos.X;
+				int32 StorageY = LocalPos.Y;
+				int32 StorageZ = LocalPos.Z;
+				
+				// Validate coordinates
+				if (StorageX >= 0 && StorageX < TileSizeX &&
+				    StorageY >= 0 && StorageY < TileSizeY &&
+				    StorageZ >= 0 && StorageZ < TileSizeZ)
+				{
+					// Get the voxel at this position
+					UCVoxelData HitVoxel = HitTile->GetVoxel(StorageX, StorageY, StorageZ);
+					uint8 HitBlockType = HitVoxel.Type & 0x03;
+					
+					// If clicked on an existing non-cube block, rotate it
+					if (HitVoxel.LayerID != UCVoxelData_Layer_Null && 
+					    HitBlockType != UCVoxelBlockType_Cube && 
+					    (HitBlockType == UCVoxelBlockType_SquareSlope || 
+					     HitBlockType == UCVoxelBlockType_TriangularSlope || 
+					     HitBlockType == UCVoxelBlockType_TriangularComplement))
+					{
+						// Calculate new Yaw based on hit normal and ray direction
+						FVector NormalizedRayDir = -PressPos.WorldRay.Direction.GetSafeNormal();
+						
+						// Define face normals
+						FVector FaceNormals[6] = {
+							FVector( 0, -1,  0), // 0: Left
+							FVector( 1,  0,  0), // 1: Front
+							FVector( 0,  1,  0), // 2: Right
+							FVector(-1,  0,  0), // 3: Back
+							FVector( 0,  0,  1), // 4: Top
+							FVector( 0,  0, -1)  // 5: Bottom
+						};
+						
+						uint8 CurrentYaw = UCVoxelData_GetYaw(HitVoxel);
+
+						CurrentYaw = (CurrentYaw + 1) % 4;						
+						// Get current Roll (Pitch) value
+						uint8 CurrentRoll = UCVoxelData_GetRoll(HitVoxel);
+						
+						if (bModifyRoll)
+						{
+							CurrentRoll++;
+							if (BlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE)
+								CurrentRoll = CurrentRoll % 3;
+							else
+								CurrentRoll = CurrentRoll % 2;
+						}
+
+						// Update the voxel with new rotation
+						HitTile->SetVoxelWithBlockType(StorageX, StorageY, StorageZ, HitVoxel.TextureID, HitVoxel.LayerID, HitBlockType, CurrentYaw, CurrentRoll, true);
+						
+						bHasPendingPlacement = false;
+						return;
+					}
+				}
+			}
+			
 			// For slope placement: show preview but don't place yet (will place on release)
 			// Calculate the adjacent voxel position in the direction of the normal
 			FIntVector VoxelWorldPos = HitVoxelPos;

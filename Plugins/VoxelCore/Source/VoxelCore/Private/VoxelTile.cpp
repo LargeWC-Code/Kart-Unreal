@@ -133,6 +133,129 @@ static const FaceIndices TriSlopeComplementFaces[7] = {
 	{ {+0, +5, +7, -1}, 3 }
 };
 
+// 多面体形状生成器：基于默认方向的面数据，计算所有旋转方向的顶点数据
+class FVoxelBlockShapeGenerator
+{
+public:
+	// 楔形体：12个方向（Yaw: 0-3, Roll: 0-2），方向索引 = Yaw * 3 + Roll
+	FaceIndices SlopeFaces[12][7];
+	
+	// 三角锥：8个方向（Yaw: 0-3, Roll: 0-1），方向索引 = Yaw * 2 + Roll
+	FaceIndices TriSlopeFaces[8][7];
+	
+	// 三角锥互补体：8个方向（Yaw: 0-3, Roll: 0-1），方向索引 = Yaw * 2 + Roll
+	FaceIndices TriSlopeComplementFaces[8][7];
+	
+	FVoxelBlockShapeGenerator()
+	{
+		// 使用默认方向的静态数组作为基础（Yaw=0, Roll=0）
+		// 生成所有旋转方向的顶点数据
+		GenerateAllSlopeOrientations();
+		GenerateAllTriSlopeOrientations();
+		GenerateAllTriSlopeComplementOrientations();
+	}
+
+private:
+	// 旋转顶点索引（绕Z轴旋转Yaw*90度）
+	// 顶点定义：0(0,0,0)前左下, 1(1,0,0)后左下, 2(1,1,0)后右下, 3(0,1,0)前右下
+	//          4(0,0,1)前左上, 5(1,0,1)后左上, 6(1,1,1)后右上, 7(0,1,1)前右上
+	// 绕Z轴旋转90度（逆时针从上方看）：(x,y,z) -> (y, 1-x, z)
+	int32 RotateVertexIndex(int32 VertexIndex, int32 Yaw) const
+	{
+		if (VertexIndex < 0 || VertexIndex >= 8)
+			return VertexIndex;
+		
+		// Yaw旋转映射表：绕Z轴旋转（逆时针从上方看）
+		static const int32 RotateMap[4][8] = {
+			{0, 1, 2, 3, 4, 5, 6, 7}, // Yaw=0: 不旋转
+			{3, 0, 1, 2, 7, 4, 5, 6}, // Yaw=1: 旋转90度  (0->3, 1->0, 2->1, 3->2, 4->7, 5->4, 6->5, 7->6)
+			{2, 3, 0, 1, 6, 7, 4, 5}, // Yaw=2: 旋转180度 (0->2, 1->3, 2->0, 3->1, 4->6, 5->7, 6->4, 7->5)
+			{1, 2, 3, 0, 5, 6, 7, 4}  // Yaw=3: 旋转270度 (0->1, 1->2, 2->3, 3->0, 4->5, 5->6, 6->7, 7->4)
+		};
+		
+		return RotateMap[Yaw & 0x03][VertexIndex];
+	}
+	
+	// 变换面的顶点索引（应用Yaw旋转）
+	void TransformFace(FaceIndices& OutFace, const FaceIndices& InFace, int32 Yaw) const
+	{
+		OutFace.Count = InFace.Count;
+		for (int32 i = 0; i < 4; ++i)
+		{
+			if (InFace.Indices[i] >= 0)
+				OutFace.Indices[i] = RotateVertexIndex(InFace.Indices[i], Yaw);
+			else
+				OutFace.Indices[i] = -1;
+		}
+	}
+	
+	// 生成所有楔形体方向（12个方向：Yaw 0-3, Roll 0-2）
+	void GenerateAllSlopeOrientations()
+	{
+		for (int32 Yaw = 0; Yaw < 4; ++Yaw)
+		{
+			for (int32 Roll = 0; Roll < 3; ++Roll)
+			{
+				int32 DirectionIndex = Yaw * 3 + Roll;
+				
+				// 使用默认方向的 SlopeFaces 作为基础
+				// 目前所有Roll值都使用相同的基础形状，后续可根据需要调整Roll的变换
+				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
+				{
+					TransformFace(SlopeFaces[DirectionIndex][FaceIdx], ::SlopeFaces[FaceIdx], Yaw);
+				}
+			}
+		}
+	}
+	
+	// 生成所有三角锥方向（8个方向：Yaw 0-3, Roll 0-1）
+	void GenerateAllTriSlopeOrientations()
+	{
+		for (int32 Yaw = 0; Yaw < 4; ++Yaw)
+		{
+			for (int32 Roll = 0; Roll < 2; ++Roll)
+			{
+				int32 DirectionIndex = Yaw * 2 + Roll;
+				
+				// 使用默认方向的 TriSlopeFaces 作为基础
+				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
+				{
+					TransformFace(TriSlopeFaces[DirectionIndex][FaceIdx], ::TriSlopeFaces[FaceIdx], Yaw);
+				}
+			}
+		}
+	}
+	
+	// 生成所有三角锥互补体方向（8个方向：Yaw 0-3, Roll 0-1）
+	void GenerateAllTriSlopeComplementOrientations()
+	{
+		for (int32 Yaw = 0; Yaw < 4; ++Yaw)
+		{
+			for (int32 Roll = 0; Roll < 2; ++Roll)
+			{
+				int32 DirectionIndex = Yaw * 2 + Roll;
+				
+				// 使用默认方向的 TriSlopeComplementFaces 作为基础
+				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
+				{
+					TransformFace(TriSlopeComplementFaces[DirectionIndex][FaceIdx], ::TriSlopeComplementFaces[FaceIdx], Yaw);
+				}
+			}
+		}
+	}
+};
+
+// 全局单例：在首次使用时初始化
+static FVoxelBlockShapeGenerator* GetBlockShapeGenerator()
+{
+	static FVoxelBlockShapeGenerator* Generator = nullptr;
+	if (!Generator)
+	{
+		Generator = new FVoxelBlockShapeGenerator();
+	}
+	return Generator;
+}
+
 AVoxelTile::AVoxelTile(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bIsActive(false)
@@ -694,25 +817,30 @@ void AVoxelTile::AddBoxFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel)
 
 void AVoxelTile::AddSquareSlopeFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel)
 {
+	// 获取方向索引
+	uint8 DirectionIndex = UCVoxelData_GetSlopeDirectionIndex(Voxel);
+	if (DirectionIndex >= 12)
+		DirectionIndex = 0;
+	
 	// 遍历所有7个面
 	for (int32 FaceIndex = 0; FaceIndex < 7; ++FaceIndex)
 	{
-// 		FIntVector Direction = FaceDirections[FaceIndex];
-// 		int32 AdjX = X + Direction.X;
-// 		int32 AdjY = Y + Direction.Y;
-// 		int32 AdjZ = Z + Direction.Z;
+		FIntVector Direction = FaceDirections[FaceIndex];
+		int32 AdjX = X + Direction.X;
+		int32 AdjY = Y + Direction.Y;
+		int32 AdjZ = Z + Direction.Z;
 
-		// 检查面是否存在（Count是否为0）
-		const FaceIndices& FaceDef = SlopeFaces[FaceIndex];
+		// 从生成器获取对应方向的面数据
+		const FaceIndices& FaceDef = GetBlockShapeGenerator()->SlopeFaces[DirectionIndex][FaceIndex];
 		if (FaceDef.Count == 0)
 			continue;
 
 		// 渲染该面
-		AddSquareSlopeFaceSingle(X, Y, Z, FaceIndex, Voxel);
+		AddSquareSlopeFaceSingle(X, Y, Z, FaceIndex, Voxel, DirectionIndex);
 	}
 }
 
-void AVoxelTile::AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel)
+void AVoxelTile::AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex)
 {
 	if (FaceIndex < 0 || FaceIndex >= 7)
 		return;
@@ -722,8 +850,8 @@ void AVoxelTile::AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceI
 	
 	int32 BaseIndex = Vertices.Num();
 	
-	// 获取面的顶点索引定义（使用统一的7个面结构）
-	const FaceIndices& FaceDef = SlopeFaces[FaceIndex];
+	// 从生成器获取对应方向的面数据
+	const FaceIndices& FaceDef = GetBlockShapeGenerator()->SlopeFaces[DirectionIndex][FaceIndex];
 	int32 NumVerts = FaceDef.Count;
 	
 	// 如果面不存在（Count为0），直接返回
@@ -801,25 +929,30 @@ void AVoxelTile::AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceI
 
 void AVoxelTile::AddTriangularSlopeFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel)
 {
+	// 获取方向索引
+	uint8 DirectionIndex = UCVoxelData_GetTriSlopeDirectionIndex(Voxel);
+	if (DirectionIndex >= 8)
+		DirectionIndex = 0;
+	
 	// 遍历所有7个面
 	for (int32 FaceIndex = 0; FaceIndex < 7; ++FaceIndex)
 	{
-// 		FIntVector Direction = FaceDirections[FaceIndex];
-// 		int32 AdjX = X + Direction.X;
-// 		int32 AdjY = Y + Direction.Y;
-// 		int32 AdjZ = Z + Direction.Z;
+		FIntVector Direction = FaceDirections[FaceIndex];
+		int32 AdjX = X + Direction.X;
+		int32 AdjY = Y + Direction.Y;
+		int32 AdjZ = Z + Direction.Z;
 
-		// 检查面是否存在（Count是否为0）
-		const FaceIndices& FaceDef = TriSlopeFaces[FaceIndex];
+		// 从生成器获取对应方向的面数据
+		const FaceIndices& FaceDef = GetBlockShapeGenerator()->TriSlopeFaces[DirectionIndex][FaceIndex];
 		if (FaceDef.Count == 0)
 			continue;
 
 		// 渲染该面
-		AddTriangularSlopeFaceSingle(X, Y, Z, FaceIndex, Voxel);
+		AddTriangularSlopeFaceSingle(X, Y, Z, FaceIndex, Voxel, DirectionIndex);
 	}
 }
 
-void AVoxelTile::AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel)
+void AVoxelTile::AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex)
 {
 	if (FaceIndex < 0 || FaceIndex >= 7)
 		return;
@@ -829,8 +962,8 @@ void AVoxelTile::AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 F
 	
 	int32 BaseIndex = Vertices.Num();
 	
-	// 获取面的顶点索引定义（使用统一的7个面结构）
-	const FaceIndices& FaceDef = TriSlopeFaces[FaceIndex];
+	// 从生成器获取对应方向的面数据
+	const FaceIndices& FaceDef = GetBlockShapeGenerator()->TriSlopeFaces[DirectionIndex][FaceIndex];
 	int32 NumVerts = FaceDef.Count;
 	
 	// 如果面不存在（Count为0），直接返回
@@ -898,25 +1031,30 @@ void AVoxelTile::AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 F
 
 void AVoxelTile::AddTriangularComplementFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel)
 {
+	// 获取方向索引（三角锥互补体使用相同的方向索引计算）
+	uint8 DirectionIndex = UCVoxelData_GetTriSlopeDirectionIndex(Voxel);
+	if (DirectionIndex >= 8)
+		DirectionIndex = 0;
+	
 	// 遍历所有7个面
 	for (int32 FaceIndex = 0; FaceIndex < 7; ++FaceIndex)
 	{
-// 		FIntVector Direction = FaceDirections[FaceIndex];
-// 		int32 AdjX = X + Direction.X;
-// 		int32 AdjY = Y + Direction.Y;
-// 		int32 AdjZ = Z + Direction.Z;
+		FIntVector Direction = FaceDirections[FaceIndex];
+		int32 AdjX = X + Direction.X;
+		int32 AdjY = Y + Direction.Y;
+		int32 AdjZ = Z + Direction.Z;
 
-		// 检查面是否存在（Count是否为0）
-		const FaceIndices& FaceDef = TriSlopeComplementFaces[FaceIndex];
+		// 从生成器获取对应方向的面数据
+		const FaceIndices& FaceDef = GetBlockShapeGenerator()->TriSlopeComplementFaces[DirectionIndex][FaceIndex];
 		if (FaceDef.Count == 0)
 			continue;
 
 		// 渲染该面
-		AddTriangularComplementFaceSingle(X, Y, Z, FaceIndex, Voxel);
+		AddTriangularComplementFaceSingle(X, Y, Z, FaceIndex, Voxel, DirectionIndex);
 	}
 }
 
-void AVoxelTile::AddTriangularComplementFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel)
+void AVoxelTile::AddTriangularComplementFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex)
 {
 	if (FaceIndex < 0 || FaceIndex >= 7)
 		return;
@@ -926,8 +1064,8 @@ void AVoxelTile::AddTriangularComplementFaceSingle(int32 X, int32 Y, int32 Z, in
 	
 	int32 BaseIndex = Vertices.Num();
 	
-	// 获取面的顶点索引定义（使用统一的7个面结构）
-	const FaceIndices& FaceDef = TriSlopeComplementFaces[FaceIndex];
+	// 从生成器获取对应方向的面数据
+	const FaceIndices& FaceDef = GetBlockShapeGenerator()->TriSlopeComplementFaces[DirectionIndex][FaceIndex];
 	int32 NumVerts = FaceDef.Count;
 	
 	// 如果面不存在（Count为0），直接返回

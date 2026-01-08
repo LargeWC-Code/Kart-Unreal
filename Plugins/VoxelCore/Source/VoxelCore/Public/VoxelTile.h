@@ -143,13 +143,13 @@ private:
 	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat = true);
 	
 	/** 添加斜楔的单个面 */
-	void AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel);
+	void AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex);
 	
 	/** 添加三角锥的单个面 */
-	void AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel);
+	void AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex);
 	
 	/** 添加三角锥互补体的单个面 */
-	void AddTriangularComplementFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel);
+	void AddTriangularComplementFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex);
 
 	/** 检查面的四个角是否都有相邻体素在同一高度（可用于合并） */
 	bool IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
