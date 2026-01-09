@@ -2,6 +2,42 @@
 
 #include "CoreMinimal.h"  // For VOXELCORE_API (defined by build system)
 #include "ucgamebase.h"  // For UCString, UCEArray, etc. from MagicXCore
+#include "VoxelMap.generated.h"
+
+/**
+ * 整数三角形结构（用于表示三个整数坐标点）
+ */
+USTRUCT(BlueprintType)
+struct VOXELCORE_API FIntTriangle
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FIntVector V0;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FIntVector V1;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FIntVector V2;
+
+	FIntTriangle()
+		: V0(FIntVector::ZeroValue)
+		, V1(FIntVector::ZeroValue)
+		, V2(FIntVector::ZeroValue)
+	{}
+
+	FIntTriangle(const FIntVector& InV0, const FIntVector& InV1, const FIntVector& InV2)
+		: V0(InV0)
+		, V1(InV1)
+		, V2(InV2)
+	{}
+
+	bool operator==(const FIntTriangle& Other) const
+	{
+		return V0 == Other.V0 && V1 == Other.V1 && V2 == Other.V2;
+	}
+};
 
 // Tile尺寸宏定义（用于所有Tile相关计算）
 #define VOXEL_TILE_SIZE_X 32

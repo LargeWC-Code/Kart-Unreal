@@ -60,6 +60,22 @@ public:
 	UCVoxelData GetVoxel(int32 X, int32 Y, int32 Z) const;
 
 	/**
+	 * 将本地存储坐标转换为世界网格坐标
+	 * @param LocalGridPosition 本地存储坐标（FIntVector，X/Y: 0-31, Z: 0-63）
+	 * @return 世界网格坐标（FIntVector，整数坐标）
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
+	FIntVector LocalToWorldPosition(const FIntVector& LocalGridPosition) const;
+
+	/**
+	 * 对三个顶点进行排序（按 Z、X、Y 顺序）
+	 * @param V0, V1, V2 三个顶点坐标
+	 * @return 排序后的三角形（FIntTriangle）
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
+	static FIntTriangle SortTriangleVertices(const FIntVector& V0, const FIntVector& V1, const FIntVector& V2);
+
+	/**
 	 * 初始化TileData（从地图数据中加载）
 	 * @param TileDataFromMap 从地图数据中获取的TileData
 	 */
