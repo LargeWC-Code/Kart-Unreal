@@ -978,27 +978,27 @@ void UVoxelEditorEditTool::PlaceVoxelAtPosition(UVoxelTerrain* Terrain, const FI
 			FVector( 0,  0, -1)  // 5: Bottom
 		};
 		
-		int32 FrontFaceIndex = 3;
-		float MaxDotFront = -1.0f;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			float Dot = FVector::DotProduct(NormalizedRayDir, FaceNormals[i]);
-			if (Dot > MaxDotFront)
-			{
-				MaxDotFront = Dot;
-				FrontFaceIndex = i;
-			}
-		}
+// 		int32 FrontFaceIndex = 3;
+// 		float MaxDotFront = -1.0f;
+// 		for (int32 i = 0; i < 4; ++i)
+// 		{
+// 			float Dot = FVector::DotProduct(NormalizedRayDir, FaceNormals[i]);
+// 			if (Dot > MaxDotFront)
+// 			{
+// 				MaxDotFront = Dot;
+// 				FrontFaceIndex = i;
+// 			}
+// 		}
 		
 		uint8 NewYaw = 0;
-		if (FrontFaceIndex == 1)      // Front (+X)
-			NewYaw = 0;
-		else if (FrontFaceIndex == 2)  // Right (+Y)
-			NewYaw = 1;
-		else if (FrontFaceIndex == 3)  // Back (-X)
-			NewYaw = 2;
-		else if (FrontFaceIndex == 0)  // Left (-Y)
-			NewYaw = 3;
+// 		if (FrontFaceIndex == 1)      // Front (+X)
+// 			NewYaw = 0;
+// 		else if (FrontFaceIndex == 2)  // Right (+Y)
+// 			NewYaw = 1;
+// 		else if (FrontFaceIndex == 3)  // Back (-X)
+// 			NewYaw = 2;
+// 		else if (FrontFaceIndex == 0)  // Left (-Y)
+// 			NewYaw = 3;
 		
 		uint8 NewRoll = 0; // Default Roll
 		

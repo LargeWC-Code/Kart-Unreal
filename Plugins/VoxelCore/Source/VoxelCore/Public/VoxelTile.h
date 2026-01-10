@@ -76,6 +76,24 @@ public:
 	static FIntTriangle SortTriangleVertices(const FIntVector& V0, const FIntVector& V1, const FIntVector& V2);
 
 	/**
+	 * 获取相邻体素的对应面信息
+	 * @param FaceIndex 当前面ID (0=Left, 1=Front, 2=Right, 3=Back, 4=Top, 5=Bottom)
+	 * @param OutNeighborOffset 输出：相邻体素的偏移量（相对于当前体素）
+	 * @return 相邻体素对应面的ID
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
+	static int32 GetNeighborFaceInfo(int32 FaceIndex);
+
+	/**
+	 * 根据面ID获取该面的三角形顶点（排序后的）
+	 * @param X, Y, Z 体素坐标（本地坐标）
+	 * @param FaceIndex 面ID (0=Left, 1=Front, 2=Right, 3=Back, 4=Top, 5=Bottom)
+	 * @return 排序后的三角形顶点（FIntTriangle）
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
+	FIntTriangle GetFaceTriangleVertices(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
+
+	/**
 	 * 初始化TileData（从地图数据中加载）
 	 * @param TileDataFromMap 从地图数据中获取的TileData
 	 */
@@ -143,29 +161,23 @@ private:
 	/** 构建网格数据 */
 	void BuildMeshData();
 	
-	/** 添加方块的所有面 */
-	void AddBoxFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel);
+	/** 获取面的所有三角形（FIntTriangle数组） */
+	void GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntTriangle>& OutTriangles) const;
 	
-	/** 添加斜楔的所有面 */
-	void AddSquareSlopeFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel);
+	/** 获取相邻面的所有三角形 */
+	void GetNeighborFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, TArray<FIntTriangle>& OutTriangles) const;
+
+	/** 为指定面添加顶点（用于Box）- 渲染阶段 */
+	void AddFaceRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
 	
-	/** 添加三角锥的所有面 */
-	void AddTriangularSlopeFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel);
+	/** 添加斜楔的单个面 - 渲染阶段 */
+	void AddSquareSlopeFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
 	
-	/** 添加三角锥互补体的所有面 */
-	void AddTriangularComplementFace(int32 X, int32 Y, int32 Z, const UCVoxelData& Voxel);
+	/** 添加三角锥的单个面 - 渲染阶段 */
+	void AddTriangularSlopeFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
 	
-	/** 为指定面添加顶点（用于Box） */
-	void AddFace(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat = true);
-	
-	/** 添加斜楔的单个面 */
-	void AddSquareSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex);
-	
-	/** 添加三角锥的单个面 */
-	void AddTriangularSlopeFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex);
-	
-	/** 添加三角锥互补体的单个面 */
-	void AddTriangularComplementFaceSingle(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex);
+	/** 添加三角锥互补体的单个面 - 渲染阶段 */
+	void AddTriangularComplementFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
 
 	/** 检查面的四个角是否都有相邻体素在同一高度（可用于合并） */
 	bool IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
