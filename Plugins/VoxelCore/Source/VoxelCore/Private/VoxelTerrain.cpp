@@ -61,7 +61,7 @@ AVoxelTile* UVoxelTerrain::GetTile(int32 TileX, int32 TileY, UWorld* World, bool
 		NewTile->Material = Material;
 		
 		// 设置地块位置
-		FVector WorldPos = GetTileWorldPosition(TileX, TileY);
+		FVector WorldPos = GetTileWorldPosition(TileY, TileX);
 		NewTile->SetActorLocation(WorldPos);
 		
 		// 设置文件夹路径：VoxelWorld/VoxelTiles
@@ -254,7 +254,7 @@ void UVoxelTerrain::FillRegion(const FVector& Min, const FVector& Max, uint8 Vox
 				continue;
 
 			// 获取 Tile 的世界位置
-			FVector TileWorldPos = GetTileWorldPosition(TileX, TileY);
+			FVector TileWorldPos = GetTileWorldPosition(TileY, TileX);
 			
 			// 将世界坐标转换为相对于 Tile 的局部坐标（Tile中心为原点）
 			FVector LocalMin = Min - TileWorldPos;
@@ -432,7 +432,7 @@ bool UVoxelTerrain::Intersect(const FVector& RayOrigin, const FVector& RayDirect
 	int32 LocalVoxelZ = HitVoxelPos.Z - HalfTileSizeZ;
 	
 	// 计算体素的世界坐标边界
-	FVector TileWorldPos = GetTileWorldPosition(HitTileCoord.X, HitTileCoord.Y);
+	FVector TileWorldPos = GetTileWorldPosition(HitTileCoord.Y, HitTileCoord.X);
 	FVector VoxelLocalMin = FVector(LocalVoxelX * VoxelSize, LocalVoxelY * VoxelSize, LocalVoxelZ * VoxelSize);
 	FVector VoxelLocalMax = VoxelLocalMin + FVector(VoxelSize, VoxelSize, VoxelSize);
 	

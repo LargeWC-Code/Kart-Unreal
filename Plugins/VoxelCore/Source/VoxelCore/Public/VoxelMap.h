@@ -4,6 +4,40 @@
 #include "ucgamebase.h"  // For UCString, UCEArray, etc. from MagicXCore
 #include "VoxelMap.generated.h"
 
+USTRUCT(BlueprintType)
+struct VOXELCORE_API FIntVertex
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FIntVector V;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FIntVector2 UV;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FColor Color;
+
+	FIntVertex()
+		: V(FIntVector::ZeroValue)
+		, UV(FIntVector2::ZeroValue)
+		, Color(FColor::White)
+	{
+	}
+
+	FIntVertex(const FIntVector& InV, const FIntVector2& InUV, const FColor& InColor)
+		: V(InV)
+		, UV(InUV)
+		, Color(InColor)
+	{
+	}
+
+	bool operator==(const FIntVertex& Other) const
+	{
+		return V == Other.V && UV == Other.UV && Color == Other.Color;
+	}
+};
+
 /**
  * 整数三角形结构（用于表示三个整数坐标点）
  */
@@ -65,7 +99,8 @@ enum UCVoxelBlockType
 	UCVoxelBlockType_Cube = 0,              // 方块
 	UCVoxelBlockType_SquareSlope = 1,       // 斜楔
 	UCVoxelBlockType_TriangularSlope = 2,   // 三角锥
-	UCVoxelBlockType_TriangularComplement = 3 // 三角锥互补体
+	UCVoxelBlockType_TriangularComplement = 3, // 三角锥互补体
+	UCVoxelBlockType_Count = 4
 };
 
 // 面形状类型

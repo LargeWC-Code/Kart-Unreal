@@ -67,23 +67,23 @@ static const FVector BaseCubeVertices[8] = {
 // Left/Right面：使用X和Z -> (X, Z)
 // Front/Back面：使用Y和Z -> (Y, Z)
 // Top/Bottom面：使用X和Y -> (X, Y)
-static const FVector2D BaseCubeUVs[8][6] = {
+static const FIntVector2 BaseCubeUVs[8][6] = {
 	// 顶点0: (0,0,0) 前左下
-	{ FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f) }, // Left, Front, Right, Back, Top, Bottom
+	{ FIntVector2(0, 0), FIntVector2(0, 0), FIntVector2(0, 0), FIntVector2(0, 0), FIntVector2(0, 0), FIntVector2(0, 0) }, // Left, Front, Right, Back, Top, Bottom
 	// 顶点1: (1,0,0) 后左下
-	{ FVector2D(1.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f) },
+	{ FIntVector2(1, 0), FIntVector2(0, 0), FIntVector2(1, 0), FIntVector2(0, 0), FIntVector2(1, 0), FIntVector2(1, 0) },
 	// 顶点2: (1,1,0) 后右下
-	{ FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f) },
+	{ FIntVector2(1, 0), FIntVector2(1, 0), FIntVector2(1, 0), FIntVector2(1, 0), FIntVector2(1, 1), FIntVector2(1, 1) },
 	// 顶点3: (0,1,0) 前右下
-	{ FVector2D(0.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f) },
+	{ FIntVector2(0, 0), FIntVector2(1, 0), FIntVector2(0, 0), FIntVector2(1, 0), FIntVector2(0, 1), FIntVector2(0, 1) },
 	// 顶点4: (0,0,1) 前左上
-	{ FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f) },
+	{ FIntVector2(0, 1), FIntVector2(0, 1), FIntVector2(0, 1), FIntVector2(0, 1), FIntVector2(0, 0), FIntVector2(0, 0) },
 	// 顶点5: (1,0,1) 后左上
-	{ FVector2D(1.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f) },
+	{ FIntVector2(1, 1), FIntVector2(0, 1), FIntVector2(1, 1), FIntVector2(0, 1), FIntVector2(1, 0), FIntVector2(1, 0) },
 	// 顶点6: (1,1,1) 后右上
-	{ FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f) },
+	{ FIntVector2(1, 1), FIntVector2(1, 1), FIntVector2(1, 1), FIntVector2(1, 1), FIntVector2(1, 1), FIntVector2(1, 1) },
 	// 顶点7: (0,1,1) 前右上
-	{ FVector2D(0.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f) }
+	{ FIntVector2(0, 1), FIntVector2(1, 1), FIntVector2(0, 1), FIntVector2(1, 1), FIntVector2(0, 1), FIntVector2(0, 1) }
 };
 
 struct FaceIndices {
@@ -162,43 +162,27 @@ static const FaceIndices TriSlopeComplementFaces[7] = {
 class FVoxelBlockShapeGenerator
 {
 public:
-	// 楔形体：12个方向（Yaw: 0-3, Pitch: 0-2），方向索引 = Yaw * 3 + Pitch
-	FaceIndices SlopeFaces[12][7];
-
-	// 楔形体：12个方向对应的面索引映射（将原来的0-5面索引映射到旋转后的绝对面索引0-5）
-	// SlopeFaceDirections[DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
-	int32 SlopeFaceDirections[12][6];
-
-	// 楔形体：12个方向对应的反向面索引映射（将绝对面索引0-5映射回自己的相对面索引0-5）
-	// SlopeFaceDirectionsReverse[DirectionIndex][AbsoluteFaceIndex] = RelativeFaceIndex
-	int32 SlopeFaceDirectionsReverse[12][6];
-
-	// 三角锥：8个方向（Yaw: 0-3, Pitch: 0-1），方向索引 = Yaw * 2 + Pitch
-	FaceIndices TriSlopeFaces[8][7];
-
-	// 三角锥：8个方向对应的面索引映射（将原来的0-5面索引映射到旋转后的绝对面索引0-5）
-	// TriSlopeFaceDirections[DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
-	int32 TriSlopeFaceDirections[8][6];
-
-	// 三角锥：8个方向对应的反向面索引映射（将绝对面索引0-5映射回自己的相对面索引0-5）
-	// TriSlopeFaceDirectionsReverse[DirectionIndex][AbsoluteFaceIndex] = RelativeFaceIndex
-	int32 TriSlopeFaceDirectionsReverse[8][6];
-
-	// 三角锥互补体：8个方向（Yaw: 0-3, Pitch: 0-1），方向索引 = Yaw * 2 + Pitch
-	FaceIndices TriSlopeComplementFaces[8][7];
-
-	// 三角锥互补体：8个方向对应的面索引映射（将原来的0-5面索引映射到旋转后的绝对面索引0-5）
-	// TriSlopeComplementFaceDirections[DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
-	int32 TriSlopeComplementFaceDirections[8][6];
-
-	// 三角锥互补体：8个方向对应的反向面索引映射（将绝对面索引0-5映射回自己的相对面索引0-5）
-	// TriSlopeComplementFaceDirectionsReverse[DirectionIndex][AbsoluteFaceIndex] = RelativeFaceIndex
-	int32 TriSlopeComplementFaceDirectionsReverse[8][6];
+	// 所有块类型的面数据：AllBlockFaces[UCVoxelBlockType][DirectionIndex][FaceIndex]
+	// 类型：使用UCVoxelBlockType枚举值
+	//   - 0=UCVoxelBlockType_Cube（立方体）：只有1个方向（方向索引0），直接使用全局BoxFaces
+	//   - 1=UCVoxelBlockType_SquareSlope（楔形体）：12个方向（Yaw: 0-3, Pitch: 0-2），方向索引 = Yaw * 3 + Pitch
+	//   - 2=UCVoxelBlockType_TriangularSlope（三角锥）：8个方向（Yaw: 0-3, Pitch: 0-1），方向索引 = Yaw * 2 + Pitch
+	//   - 3=UCVoxelBlockType_TriangularComplement（三角锥互补体）：8个方向（Yaw: 0-3, Pitch: 0-1），方向索引 = Yaw * 2 + Pitch
+	// 方向ID：楔形体用0-11，三角锥和三角锥互补体用0-7，立方体用0（以最大12为准）
+	// 面ID：0-6（7个面）
+	FaceIndices AllBlockFaces[4][12][7];
+	
+	// 所有块类型的反向面索引映射：AllBlockFaceDirectionsReverse[UCVoxelBlockType][DirectionIndex][AbsoluteFaceIndex] = RelativeFaceIndex
+	// 类型：使用UCVoxelBlockType枚举值（同上）
+	// 方向ID：楔形体用0-11，三角锥和三角锥互补体用0-7，立方体用0（以最大12为准）
+	// 绝对面索引：0-5（6个面）
+	int32 AllBlockFaceDirectionsReverse[4][12][6];
 
 	FVoxelBlockShapeGenerator()
 	{
 		// 使用默认方向的静态数组作为基础（Yaw=0, Pitch=0）
 		// 生成所有旋转方向的顶点数据
+		GenerateCubeOrientations();
 		GenerateAllSlopeOrientations();
 		GenerateAllTriSlopeOrientations();
 		GenerateAllTriSlopeComplementOrientations();
@@ -326,6 +310,22 @@ private:
 		return RotateFaceIndexByYaw(PitchedFaceIndex, Yaw);
 	}
 
+	// 生成立方体方向（只有1个方向，方向索引0）
+	void GenerateCubeOrientations()
+	{
+		int32 DirectionIndex = 0;
+		// 立方体只有1个方向，直接复制全局BoxFaces
+		for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
+		{
+			AllBlockFaces[UCVoxelBlockType_Cube][DirectionIndex][FaceIdx] = ::BoxFaces[FaceIdx];
+		}
+		// 立方体的反向映射：AbsoluteFaceIndex -> RelativeFaceIndex（立方体不需要旋转，所以是恒等映射）
+		for (int32 AbsoluteFaceIdx = 0; AbsoluteFaceIdx < 6; ++AbsoluteFaceIdx)
+		{
+			AllBlockFaceDirectionsReverse[UCVoxelBlockType_Cube][DirectionIndex][AbsoluteFaceIdx] = AbsoluteFaceIdx;
+		}
+	}
+
 	// 生成所有楔形体方向（12个方向：Yaw 0-3, Pitch 0-2）
 	void GenerateAllSlopeOrientations()
 	{
@@ -341,17 +341,16 @@ private:
 				// Pitch=2: 绕Y轴旋转180度后，再绕Yaw旋转
 				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
 				{
-					TransformFace(SlopeFaces[DirectionIndex][FaceIdx], ::SlopeFaces[FaceIdx], Yaw, Pitch);
+					TransformFace(AllBlockFaces[UCVoxelBlockType_SquareSlope][DirectionIndex][FaceIdx], ::SlopeFaces[FaceIdx], Yaw, Pitch);
 				}
 
 				// 生成对应方向的面的索引映射（6个面：Left, Front, Right, Back, Top, Bottom）
-				// SlopeFaceDirections[DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
+				// AllBlockFaceDirectionsReverse[UCVoxelBlockType_SquareSlope][DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
 				for (int32 RelativeFaceIdx = 0; RelativeFaceIdx < 6; ++RelativeFaceIdx)
 				{
 					int32 AbsoluteFaceIdx = TransformFaceIndex(RelativeFaceIdx, Yaw, Pitch);
-					SlopeFaceDirections[DirectionIndex][RelativeFaceIdx] = AbsoluteFaceIdx;
 					// 生成反向映射：AbsoluteFaceIndex -> RelativeFaceIndex
-					SlopeFaceDirectionsReverse[DirectionIndex][AbsoluteFaceIdx] = RelativeFaceIdx;
+					AllBlockFaceDirectionsReverse[UCVoxelBlockType_SquareSlope][DirectionIndex][AbsoluteFaceIdx] = RelativeFaceIdx;
 				}
 			}
 		}
@@ -370,17 +369,16 @@ private:
 				// 对于三角锥，Pitch 只有 0 和 1，Pitch=1 表示绕Y轴旋转90度
 				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
 				{
-					TransformFace(TriSlopeFaces[DirectionIndex][FaceIdx], ::TriSlopeFaces[FaceIdx], Yaw, Pitch);
+					TransformFace(AllBlockFaces[UCVoxelBlockType_TriangularSlope][DirectionIndex][FaceIdx], ::TriSlopeFaces[FaceIdx], Yaw, Pitch);
 				}
 
 				// 生成对应方向的面的索引映射（6个面：Left, Front, Right, Back, Top, Bottom）
-				// TriSlopeFaceDirections[DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
+				// AllBlockFaceDirectionsReverse[UCVoxelBlockType_TriangularSlope][DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
 				for (int32 RelativeFaceIdx = 0; RelativeFaceIdx < 6; ++RelativeFaceIdx)
 				{
 					int32 AbsoluteFaceIdx = TransformFaceIndex(RelativeFaceIdx, Yaw, Pitch);
-					TriSlopeFaceDirections[DirectionIndex][RelativeFaceIdx] = AbsoluteFaceIdx;
 					// 生成反向映射：AbsoluteFaceIndex -> RelativeFaceIndex
-					TriSlopeFaceDirectionsReverse[DirectionIndex][AbsoluteFaceIdx] = RelativeFaceIdx;
+					AllBlockFaceDirectionsReverse[UCVoxelBlockType_TriangularSlope][DirectionIndex][AbsoluteFaceIdx] = RelativeFaceIdx;
 				}
 			}
 		}
@@ -399,17 +397,16 @@ private:
 				// 对于三角锥互补体，Pitch 只有 0 和 1，Pitch=1 表示绕Y轴旋转90度
 				for (int32 FaceIdx = 0; FaceIdx < 7; ++FaceIdx)
 				{
-					TransformFace(TriSlopeComplementFaces[DirectionIndex][FaceIdx], ::TriSlopeComplementFaces[FaceIdx], Yaw, Pitch);
+					TransformFace(AllBlockFaces[UCVoxelBlockType_TriangularComplement][DirectionIndex][FaceIdx], ::TriSlopeComplementFaces[FaceIdx], Yaw, Pitch);
 				}
 
 				// 生成对应方向的面的索引映射（6个面：Left, Front, Right, Back, Top, Bottom）
-				// TriSlopeComplementFaceDirections[DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
+				// AllBlockFaceDirectionsReverse[UCVoxelBlockType_TriangularComplement][DirectionIndex][RelativeFaceIndex] = AbsoluteFaceIndex
 				for (int32 RelativeFaceIdx = 0; RelativeFaceIdx < 6; ++RelativeFaceIdx)
 				{
 					int32 AbsoluteFaceIdx = TransformFaceIndex(RelativeFaceIdx, Yaw, Pitch);
-					TriSlopeComplementFaceDirections[DirectionIndex][RelativeFaceIdx] = AbsoluteFaceIdx;
 					// 生成反向映射：AbsoluteFaceIndex -> RelativeFaceIndex
-					TriSlopeComplementFaceDirectionsReverse[DirectionIndex][AbsoluteFaceIdx] = RelativeFaceIdx;
+					AllBlockFaceDirectionsReverse[UCVoxelBlockType_TriangularComplement][DirectionIndex][AbsoluteFaceIdx] = RelativeFaceIdx;
 				}
 			}
 		}
@@ -534,7 +531,7 @@ FIntVector AVoxelTile::LocalToWorldPosition(const FIntVector& LocalGridPosition)
 	// Tile的世界网格位置 = TileCoord * TileSize
 	const int32 TileSizeX = VOXEL_TILE_SIZE_X;
 	const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
-	FIntVector TileWorldGridPos(TileCoord.X * TileSizeX, TileCoord.Y * TileSizeY, 0);
+	FIntVector TileWorldGridPos(TileCoord.Y * TileSizeX, TileCoord.X * TileSizeY, 0);
 
 	// 计算体素的世界网格坐标（Tile世界网格位置 + 局部偏移）
 	FIntVector WorldGridPos = TileWorldGridPos + FIntVector(
@@ -590,69 +587,10 @@ int32 AVoxelTile::GetNeighborFaceInfo(int32 FaceIndex)
 	return OppositeFaceIndex;
 }
 
-FIntTriangle AVoxelTile::GetFaceTriangleVertices(int32 X, int32 Y, int32 Z, int32 FaceIndex) const
-{
-	// 验证面索引
-	if (FaceIndex < 0 || FaceIndex >= 6)
-	{
-		return FIntTriangle(FIntVector::ZeroValue, FIntVector::ZeroValue, FIntVector::ZeroValue);
-	}
-
-	// 获取面的顶点索引定义（使用Box的标准面定义）
-	const FaceIndices& FaceDef = BoxFaces[FaceIndex];
-
-	if (FaceDef.Count < 3)
-	{
-		// 如果面的顶点数不足3个，返回无效三角形
-		return FIntTriangle(FIntVector::ZeroValue, FIntVector::ZeroValue, FIntVector::ZeroValue);
-	}
-
-	// 将局部顶点索引转换为体素网格坐标
-	// BaseCubeVertices定义的是单位立方体(0-1)，需要转换为体素网格坐标
-	// 顶点索引到网格坐标的转换：
-	// 顶点0(0,0,0) -> (X, Y, Z)
-	// 顶点1(1,0,0) -> (X+1, Y, Z)
-	// 顶点2(1,1,0) -> (X+1, Y+1, Z)
-	// 顶点3(0,1,0) -> (X, Y+1, Z)
-	// 顶点4(0,0,1) -> (X, Y, Z+1)
-	// 顶点5(1,0,1) -> (X+1, Y, Z+1)
-	// 顶点6(1,1,1) -> (X+1, Y+1, Z+1)
-	// 顶点7(0,1,1) -> (X, Y+1, Z+1)
-
-	FIntVector V0, V1, V2;
-
-	// 获取前三个顶点的索引
-	int32 VertexIndex0 = FaceDef.Indices[0];
-	int32 VertexIndex1 = FaceDef.Indices[1];
-	int32 VertexIndex2 = FaceDef.Indices[2];
-
-	// 将顶点索引转换为网格坐标
-	auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
-		{
-			// BaseCubeVertices的顶点定义：
-			// 0: (0,0,0), 1: (1,0,0), 2: (1,1,0), 3: (0,1,0)
-			// 4: (0,0,1), 5: (1,0,1), 6: (1,1,1), 7: (0,1,1)
-			// 转换为网格坐标：(X + vx, Y + vy, Z + vz)
-			const FVector& LocalVertex = BaseCubeVertices[VertexIndex];
-			return FIntVector(
-				X + (int32)LocalVertex.X,
-				Y + (int32)LocalVertex.Y,
-				Z + (int32)LocalVertex.Z
-			);
-		};
-
-	V0 = ConvertVertexIndexToGridPos(VertexIndex0);
-	V1 = ConvertVertexIndexToGridPos(VertexIndex1);
-	V2 = ConvertVertexIndexToGridPos(VertexIndex2);
-
-	// 使用SortTriangleVertices对三个顶点进行排序
-	return SortTriangleVertices(V0, V1, V2);
-}
-
-void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntTriangle>& OutTriangles) const
+void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntVertex>& OutVertices, FVector& Normal, TArray<FIntVector>& OutFaceIndexes) const
 {
 	FVoxelBlockShapeGenerator* BlockShapeGenerator = GetBlockShapeGenerator();
-	OutTriangles.Empty();
+	OutVertices.Empty();
 
 	// 将局部顶点索引转换为体素网格坐标的辅助函数
 	auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
@@ -667,242 +605,131 @@ void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, ui
 			);
 		};
 
-	switch (BlockType)
+	int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->AllBlockFaceDirectionsReverse[BlockType][DirectionIndex][FaceIndex];
+	const FaceIndices& FaceDef = BlockShapeGenerator->AllBlockFaces[BlockType][DirectionIndex][RelativeFaceIndex];
+	if (FaceDef.Count == 0)
+		return;
+
+	// 计算 Color（基于 TextureID）
+	FColor TriangleColor = FColor::White;
+	if (Voxel.TextureID > 0)
 	{
-	case UCVoxelBlockType_Cube:
-	{
-		const FaceIndices& FaceDef = BoxFaces[FaceIndex];
-		if (FaceDef.Count == 0)
-			return;
-
-		if (bFlat)
-		{
-			// 简单模式：2个三角形
-			if (FaceDef.Count >= 4)
-			{
-				FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-				FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-				FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-				FIntVector V3 = ConvertVertexIndexToGridPos(FaceDef.Indices[3]);
-
-				OutTriangles.Add(SortTriangleVertices(V0, V2, V1));
-				OutTriangles.Add(SortTriangleVertices(V0, V3, V2));
-			}
-		}
-		else
-		{
-			// AO模式：4个三角形（中心点在面的中心）
-			if (FaceDef.Count >= 4)
-			{
-				FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-				FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-				FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-				FIntVector V3 = ConvertVertexIndexToGridPos(FaceDef.Indices[3]);
-
-				// 计算中心点（面的中心）
-				FIntVector Center(
-					(V0.X + V1.X + V2.X + V3.X) / 4,
-					(V0.Y + V1.Y + V2.Y + V3.Y) / 4,
-					(V0.Z + V1.Z + V2.Z + V3.Z) / 4
-				);
-
-				OutTriangles.Add(SortTriangleVertices(Center, V1, V0));
-				OutTriangles.Add(SortTriangleVertices(Center, V2, V1));
-				OutTriangles.Add(SortTriangleVertices(Center, V3, V2));
-				OutTriangles.Add(SortTriangleVertices(Center, V0, V3));
-			}
-		}
-		break;
+		uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
+		TriangleColor = FColor(Gray, Gray, Gray, 255);
 	}
-	case UCVoxelBlockType_SquareSlope:
-	{
-		int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->SlopeFaceDirectionsReverse[DirectionIndex][FaceIndex];
-		const FaceIndices& FaceDef = BlockShapeGenerator->SlopeFaces[DirectionIndex][RelativeFaceIndex];
-		if (FaceDef.Count == 0)
-			return;
 
-		// 计算中心点
+	// 获取顶点的UV坐标
+	auto GetVertexUV = [FaceIndex](int32 VertexIndex) -> FIntVector2
+		{
+			if (VertexIndex < 0 || VertexIndex >= 8 || FaceIndex < 0 || FaceIndex >= 6)
+				return FIntVector2::ZeroValue;
+			return BaseCubeUVs[VertexIndex][FaceIndex];
+		};
+
+	FIntVector V0 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[0])) * 2;
+	FIntVector V1 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[1])) * 2;
+	FIntVector V2 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[2])) * 2;
+	FIntVector2 UV0 = GetVertexUV(FaceDef.Indices[0]) * 2;
+	FIntVector2 UV1 = GetVertexUV(FaceDef.Indices[1]) * 2;
+	FIntVector2 UV2 = GetVertexUV(FaceDef.Indices[2]) * 2;
+
+	// 计算法向量
+	if (FaceIndex < 6)
+	{
+		// 标准面：使用预定义的法向量
+		Normal = FaceNormals[FaceIndex];
+	}
+	else
+	{
+		// 斜面（FaceIndex == 6）：通过顶点计算法向量
+		// 使用前三个顶点计算：Normal = (V1 - V0) × (V2 - V0)，然后归一化
+		FVector Edge1 = FVector(V1.X - V0.X, V1.Y - V0.Y, V1.Z - V0.Z);
+		FVector Edge2 = FVector(V2.X - V0.X, V2.Y - V0.Y, V2.Z - V0.Z);
+		Normal = FVector::CrossProduct(Edge1, Edge2).GetSafeNormal();
+		// 如果归一化失败，使用默认值
+		if (Normal.IsNearlyZero())
+		{
+			Normal = FVector(0, 0, 1); // 默认向上
+		}
+	}
+
+	if (bFlat)
+	{
+		// 简单模式：2个三角形
+		if (FaceDef.Count >= 4)
+		{
+			FIntVector V3 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[3])) * 2;
+			FIntVector2 UV3 = GetVertexUV(FaceDef.Indices[3]) * 2;
+
+			OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
+			OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
+			OutVertices.Add(FIntVertex(V2, UV2, TriangleColor));
+			OutVertices.Add(FIntVertex(V3, UV3, TriangleColor));
+
+			OutFaceIndexes.Add(FIntVector(0, 2, 1));
+			OutFaceIndexes.Add(FIntVector(0, 3, 2));
+		}
+	}
+	else
+	{
+		// AO模式：计算中心点和中心UV
 		FIntVector Center(0, 0, 0);
+		FIntVector2 CenterUV(0, 0);
 		int32 NumPointsForCenter = 0;
 		for (int32 i = 0; i < 4; ++i)
 		{
 			int32 VertexIndex = FaceDef.Indices[i];
 			if (VertexIndex == -1)
 				break;
-			FIntVector V = ConvertVertexIndexToGridPos(VertexIndex);
-			Center += V;
+			Center += LocalToWorldPosition(ConvertVertexIndexToGridPos(VertexIndex)) * 2;
+			CenterUV += GetVertexUV(VertexIndex) * 2;
 			NumPointsForCenter++;
 		}
 		if (NumPointsForCenter > 0)
 		{
-			Center.X /= NumPointsForCenter;
-			Center.Y /= NumPointsForCenter;
-			Center.Z /= NumPointsForCenter;
+			Center /= NumPointsForCenter;
+			CenterUV /= NumPointsForCenter;
 		}
 
 		if (FaceDef.Count == 3)
 		{
-			// 三角形拆解成2个三角形
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
+			if (FaceIndex < 6)
+			{
+				OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
+				OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
+				OutVertices.Add(FIntVertex(V2, UV2, TriangleColor));
+				OutVertices.Add(FIntVertex(Center, CenterUV, TriangleColor));
 
-			OutTriangles.Add(SortTriangleVertices(V0, Center, V1));
-			OutTriangles.Add(SortTriangleVertices(V0, V2, Center));
+				OutFaceIndexes.Add(FIntVector(0, 3, 1));
+				OutFaceIndexes.Add(FIntVector(0, 2, 3));
+			}
+			else
+			{
+				OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
+				OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
+				OutVertices.Add(FIntVertex(V2, UV2, TriangleColor));
+
+				OutFaceIndexes.Add(FIntVector(0, 2, 1));
+			}
 		}
 		else if (FaceDef.Count == 4)
 		{
-			// 四边形拆解成4个三角形
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-			FIntVector V3 = ConvertVertexIndexToGridPos(FaceDef.Indices[3]);
+			// 四边形拆解成4个三角形（带中心点）
+			FIntVector V3 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[3])) * 2;
+			FIntVector2 UV3 = GetVertexUV(FaceDef.Indices[3]) * 2;
 
-			OutTriangles.Add(SortTriangleVertices(V0, Center, V1));
-			OutTriangles.Add(SortTriangleVertices(V1, Center, V2));
-			OutTriangles.Add(SortTriangleVertices(V2, Center, V3));
-			OutTriangles.Add(SortTriangleVertices(V3, Center, V0));
+			OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
+			OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
+			OutVertices.Add(FIntVertex(V2, UV2, TriangleColor));
+			OutVertices.Add(FIntVertex(V3, UV3, TriangleColor));
+			OutVertices.Add(FIntVertex(Center, CenterUV, TriangleColor));
+
+			OutFaceIndexes.Add(FIntVector(0, 4, 1));
+			OutFaceIndexes.Add(FIntVector(1, 4, 2));
+			OutFaceIndexes.Add(FIntVector(2, 4, 3));
+			OutFaceIndexes.Add(FIntVector(3, 4, 0));
 		}
-		break;
 	}
-	case UCVoxelBlockType_TriangularSlope:
-	{
-		int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->TriSlopeFaceDirectionsReverse[DirectionIndex][FaceIndex];
-		const FaceIndices& FaceDef = BlockShapeGenerator->TriSlopeFaces[DirectionIndex][RelativeFaceIndex];
-		if (FaceDef.Count == 0)
-			return;
-
-		if (FaceIndex < 6)
-		{
-			// 计算中心点
-			FIntVector Center(0, 0, 0);
-			int32 NumPointsForCenter = 0;
-			for (int32 i = 0; i < 4; ++i)
-			{
-				int32 VertexIndex = FaceDef.Indices[i];
-				if (VertexIndex == -1)
-					break;
-				FIntVector V = ConvertVertexIndexToGridPos(VertexIndex);
-				Center += V;
-				NumPointsForCenter++;
-			}
-			if (NumPointsForCenter > 0)
-			{
-				Center.X /= NumPointsForCenter;
-				Center.Y /= NumPointsForCenter;
-				Center.Z /= NumPointsForCenter;
-			}
-
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-
-			OutTriangles.Add(SortTriangleVertices(V0, Center, V1));
-			OutTriangles.Add(SortTriangleVertices(V0, V2, Center));
-		}
-		else
-		{
-			// 单个三角形
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-			OutTriangles.Add(SortTriangleVertices(V0, V2, V1));
-		}
-		break;
-	}
-	case UCVoxelBlockType_TriangularComplement:
-	{
-		int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->TriSlopeComplementFaceDirectionsReverse[DirectionIndex][FaceIndex];
-		const FaceIndices& FaceDef = BlockShapeGenerator->TriSlopeComplementFaces[DirectionIndex][RelativeFaceIndex];
-		if (FaceDef.Count == 0)
-			return;
-
-		// 计算中心点
-		FIntVector Center(0, 0, 0);
-		int32 NumPointsForCenter = 0;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			if (VertexIndex == -1)
-				break;
-			FIntVector V = ConvertVertexIndexToGridPos(VertexIndex);
-			Center += V;
-			NumPointsForCenter++;
-		}
-		if (NumPointsForCenter > 0)
-		{
-			Center.X /= NumPointsForCenter;
-			Center.Y /= NumPointsForCenter;
-			Center.Z /= NumPointsForCenter;
-		}
-
-		if (FaceDef.Count == 3)
-		{
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-
-			OutTriangles.Add(SortTriangleVertices(V0, Center, V1));
-			OutTriangles.Add(SortTriangleVertices(V0, V2, Center));
-		}
-		else if (FaceDef.Count == 4)
-		{
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-			FIntVector V3 = ConvertVertexIndexToGridPos(FaceDef.Indices[3]);
-
-			OutTriangles.Add(SortTriangleVertices(V0, Center, V1));
-			OutTriangles.Add(SortTriangleVertices(V1, Center, V2));
-			OutTriangles.Add(SortTriangleVertices(V2, Center, V3));
-			OutTriangles.Add(SortTriangleVertices(V3, Center, V0));
-		}
-		break;
-	}
-	}
-}
-
-void AVoxelTile::GetNeighborFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, TArray<FIntTriangle>& OutTriangles) const
-{
-	// 获取相邻体素的位置和对应面
-	// 获取对面索引
-	int32 NeighborFaceIndex = GetNeighborFaceInfo(FaceIndex);
-	if (NeighborFaceIndex == -1)
-		return;
-
-	const FIntVector& FaceDir = FaceDirections[FaceIndex];
-	int32 NeighborX = X + FaceDir.X;
-	int32 NeighborY = Y + FaceDir.Y;
-	int32 NeighborZ = Z + FaceDir.Z;
-
-	// 检查相邻体素是否在有效范围内
-	if (!IsValidVoxelCoord(NeighborX, NeighborY, NeighborZ))
-		return;
-
-	// 获取相邻体素
-	UCVoxelData NeighborVoxel = GetVoxel(NeighborX, NeighborY, NeighborZ);
-	if (NeighborVoxel.LayerID == UCVoxelData_Layer_Null)
-		return;
-
-	// 获取相邻体素的类型和方向索引
-	uint8 NeighborBlockType = NeighborVoxel.Type & 0x03;
-	uint8 NeighborDirectionIndex = 0;
-	if (NeighborBlockType == UCVoxelBlockType_SquareSlope)
-	{
-		NeighborDirectionIndex = UCVoxelData_GetSlopeDirectionIndex(NeighborVoxel);
-		if (NeighborDirectionIndex >= 12)
-			NeighborDirectionIndex = 0;
-	}
-	else if (NeighborBlockType == UCVoxelBlockType_TriangularSlope || NeighborBlockType == UCVoxelBlockType_TriangularComplement)
-	{
-		NeighborDirectionIndex = UCVoxelData_GetTriSlopeDirectionIndex(NeighborVoxel);
-		if (NeighborDirectionIndex >= 8)
-			NeighborDirectionIndex = 0;
-	}
-
-	// 获取相邻面的三角形
-	bool bNeighborFlat = (NeighborBlockType == UCVoxelBlockType_Cube) ? IsFaceFlat(NeighborX, NeighborY, NeighborZ, NeighborFaceIndex) : false;
-	GetFaceTriangles(NeighborX, NeighborY, NeighborZ, NeighborFaceIndex, NeighborBlockType, NeighborDirectionIndex, NeighborVoxel, bNeighborFlat, OutTriangles);
 }
 
 void AVoxelTile::SetActive(bool bActive)
@@ -1010,6 +837,8 @@ bool AVoxelTile::IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const
 
 void AVoxelTile::BuildMeshData()
 {
+	FVector TileWorldGridPos(TileCoord.Y * VOXEL_TILE_SIZE_X * VoxelSize, TileCoord.X * VOXEL_TILE_SIZE_Y * VoxelSize, 0);
+
 	FVoxelBlockShapeGenerator* BlockShapeGenerator = GetBlockShapeGenerator();
 	// 遍历所有体素，为每个可见面生成几何体
 	for (int32 Z = 0; Z < VOXEL_TILE_SIZE_Z; ++Z)
@@ -1032,1286 +861,97 @@ void AVoxelTile::BuildMeshData()
 				else if (BlockType == UCVoxelBlockType_TriangularSlope || BlockType == UCVoxelBlockType_TriangularComplement)
 					DirectionIndex = UCVoxelData_GetTriSlopeDirectionIndex(Voxel);
 
+				
 				// 遍历所有面（Box有6个面，其他有7个面）
 				int32 MaxFaceIndex = (BlockType == UCVoxelBlockType_Cube) ? 6 : 7;
 				for (int32 FaceIndex = 0; FaceIndex < MaxFaceIndex; ++FaceIndex)
 				{
-					// 根据图素类型处理不同的面
-					switch (BlockType)
+					// 获取面的三角形数组
+					TArray<FIntVertex> FaceVertices;
+					TArray<FIntVector> FacesIndexes;
+					FVector FaceNormal;
+					bool bFlat = IsFaceFlat(X, Y, Z, FaceIndex);
+					GetFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, Voxel, bFlat, FaceVertices, FaceNormal, FacesIndexes);
+
+					if (FacesIndexes.Num() == 0)
+						continue;
+
+					int32 NeighborFaceIndex = GetNeighborFaceInfo(FaceIndex);
+					if (NeighborFaceIndex == -1)
+						continue;
+
+					const FIntVector& FaceDir = FaceDirections[FaceIndex];
+					FIntVector Neighbor(X + FaceDir.X, Y + FaceDir.Y, Z + FaceDir.Z);
+					TArray<FIntVertex> NeighborFaceVertices;
+					TArray<FIntVector> NeighborFacesIndexes;
+					FVector NeighborFaceNormal;
+					// 检查相邻体素是否在有效范围内
+					if (IsValidVoxelCoord(Neighbor.X, Neighbor.Y, Neighbor.Z))
 					{
-					case UCVoxelBlockType_Cube:
-					{
-						// 添加方块的面
-						// 检查面是否存在（Count是否为0）
-						const FaceIndices& FaceDef = BoxFaces[FaceIndex];
-						if (FaceDef.Count == 0)
-							continue;
-
-						// 获取面的三角形数组
-						TArray<FIntTriangle> FaceTriangles;
-						bool bFlat = IsFaceFlat(X, Y, Z, FaceIndex);
-						GetFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, Voxel, bFlat, FaceTriangles);
-
-						if (FaceTriangles.Num() == 0)
-							continue;
-
-						// 获取相邻面的三角形数组
-						TArray<FIntTriangle> FaceNeighborTriangles;
-						GetNeighborFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, FaceNeighborTriangles);
-
-						// 从当前面的三角形中删除相邻面已有的三角形
-						TArray<FIntTriangle> TrianglesToRender;
-						for (const FIntTriangle& Triangle : FaceTriangles)
+						// 获取相邻体素
+						UCVoxelData NeighborVoxel = GetVoxel(Neighbor.X, Neighbor.Y, Neighbor.Z);
+						if (NeighborVoxel.LayerID != UCVoxelData_Layer_Null)
 						{
-							bool bFound = false;
-							for (const FIntTriangle& NeighborTriangle : FaceNeighborTriangles)
+							// 获取相邻体素的类型和方向索引
+							uint8 NeighborBlockType = NeighborVoxel.Type & 0x03;
+							uint8 NeighborDirectionIndex = 0;
+							if (NeighborBlockType == UCVoxelBlockType_SquareSlope)
+								NeighborDirectionIndex = UCVoxelData_GetSlopeDirectionIndex(NeighborVoxel);
+							else if (NeighborBlockType == UCVoxelBlockType_TriangularSlope || NeighborBlockType == UCVoxelBlockType_TriangularComplement)
+								NeighborDirectionIndex = UCVoxelData_GetTriSlopeDirectionIndex(NeighborVoxel);
+
+							// 获取相邻面的三角形
+							bool bNeighborFlat = (NeighborBlockType == UCVoxelBlockType_Cube) ? IsFaceFlat(Neighbor.X, Neighbor.Y, Neighbor.Z, NeighborFaceIndex) : false;
+
+							GetFaceTriangles(Neighbor.X, Neighbor.Y, Neighbor.Z, NeighborFaceIndex, NeighborBlockType, NeighborDirectionIndex, NeighborVoxel, bNeighborFlat, NeighborFaceVertices, NeighborFaceNormal, NeighborFacesIndexes);
+						}
+					}
+
+					// 从当前面的三角形中删除相邻面已有的三角形
+					TArray<FIntVector> TrianglesToRender;
+					for (const FIntVector& Face : FacesIndexes)
+					{
+						FIntTriangle Triangle = SortTriangleVertices(FaceVertices[Face.X].V, FaceVertices[Face.Y].V, FaceVertices[Face.Z].V);
+						bool bFound = false;
+						for (const FIntVector& NeighborFace : NeighborFacesIndexes)
+						{
+							FIntTriangle NeighborTriangle = SortTriangleVertices(NeighborFaceVertices[NeighborFace.X].V, NeighborFaceVertices[NeighborFace.Y].V, NeighborFaceVertices[NeighborFace.Z].V);
+							if (Triangle == NeighborTriangle)
 							{
-								if (Triangle == NeighborTriangle)
-								{
-									bFound = true;
-									break;
-								}
-							}
-							if (!bFound)
-							{
-								TrianglesToRender.Add(Triangle);
+								bFound = true;
+								break;
 							}
 						}
-
-						// 如果没有需要渲染的三角形，跳过
-						if (TrianglesToRender.Num() == 0)
-							continue;
-
-						// 渲染该面（只渲染剩余的三角形）
-						AddFaceRender(X, Y, Z, FaceIndex, Voxel, bFlat, TrianglesToRender);
-						break;
+						if (!bFound)
+							TrianglesToRender.Add(Face);
 					}
-					case UCVoxelBlockType_SquareSlope:
+
+					// 如果没有需要渲染的三角形，跳过
+					if (TrianglesToRender.Num() == 0)
+						continue;
+
+					int32 BaseIndex = Vertices.Num();
+
+					for (ucINT i = 0; i < FaceVertices.Num(); i++)
 					{
-						// 获取面的三角形数组
-						TArray<FIntTriangle> FaceTriangles;
-						GetFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, Voxel, false, FaceTriangles);
+						FVector Location(FaceVertices[i].V);
+						Vertices.Add(Location / 2.0f * VoxelSize - TileWorldGridPos);
+						FVector2D UV(FaceVertices[i].UV);
+						UVs.Add(UV / 2.0f);
+						VertexColors.Add(FaceVertices[i].Color);
 
-						if (FaceTriangles.Num() == 0)
-							continue;
-
-						// 获取相邻面的三角形数组
-						TArray<FIntTriangle> FaceNeighborTriangles;
-						GetNeighborFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, FaceNeighborTriangles);
-
-						// 从当前面的三角形中删除相邻面已有的三角形
-						TArray<FIntTriangle> TrianglesToRender;
-						for (const FIntTriangle& Triangle : FaceTriangles)
-						{
-							bool bFound = false;
-							for (const FIntTriangle& NeighborTriangle : FaceNeighborTriangles)
-							{
-								if (Triangle == NeighborTriangle)
-								{
-									bFound = true;
-									break;
-								}
-							}
-							if (!bFound)
-							{
-								TrianglesToRender.Add(Triangle);
-							}
-						}
-
-						// 如果没有需要渲染的三角形，跳过
-						if (TrianglesToRender.Num() == 0)
-							continue;
-
-						// 渲染该面（只渲染剩余的三角形）
-						AddSquareSlopeFaceSingleRender(X, Y, Z, FaceIndex, Voxel, DirectionIndex, TrianglesToRender);
-						break;
+						Normals.Add(FaceNormal);
+						Tangents.Add(FProcMeshTangent(0, 0, 1));
 					}
-					case UCVoxelBlockType_TriangularSlope:
+					for (const FIntVector& Face : TrianglesToRender)
 					{
-						// 获取面的三角形数组
-						TArray<FIntTriangle> FaceTriangles;
-						GetFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, Voxel, false, FaceTriangles);
-
-						if (FaceTriangles.Num() == 0)
-							continue;
-
-						// 获取相邻面的三角形数组
-						TArray<FIntTriangle> FaceNeighborTriangles;
-						GetNeighborFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, FaceNeighborTriangles);
-
-						// 从当前面的三角形中删除相邻面已有的三角形
-						TArray<FIntTriangle> TrianglesToRender;
-						for (const FIntTriangle& Triangle : FaceTriangles)
-						{
-							bool bFound = false;
-							for (const FIntTriangle& NeighborTriangle : FaceNeighborTriangles)
-							{
-								if (Triangle == NeighborTriangle)
-								{
-									bFound = true;
-									break;
-								}
-							}
-							if (!bFound)
-							{
-								TrianglesToRender.Add(Triangle);
-							}
-						}
-
-						// 如果没有需要渲染的三角形，跳过
-						if (TrianglesToRender.Num() == 0)
-							continue;
-
-						// 渲染该面（只渲染剩余的三角形）
-						AddTriangularSlopeFaceSingleRender(X, Y, Z, FaceIndex, Voxel, DirectionIndex, TrianglesToRender);
-						break;
-					}
-					case UCVoxelBlockType_TriangularComplement:
-					{
-						// 获取面的三角形数组
-						TArray<FIntTriangle> FaceTriangles;
-						GetFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, Voxel, false, FaceTriangles);
-
-						if (FaceTriangles.Num() == 0)
-							continue;
-
-						// 获取相邻面的三角形数组
-						TArray<FIntTriangle> FaceNeighborTriangles;
-						GetNeighborFaceTriangles(X, Y, Z, FaceIndex, BlockType, DirectionIndex, FaceNeighborTriangles);
-
-						// 从当前面的三角形中删除相邻面已有的三角形
-						TArray<FIntTriangle> TrianglesToRender;
-						for (const FIntTriangle& Triangle : FaceTriangles)
-						{
-							bool bFound = false;
-							for (const FIntTriangle& NeighborTriangle : FaceNeighborTriangles)
-							{
-								if (Triangle == NeighborTriangle)
-								{
-									bFound = true;
-									break;
-								}
-							}
-							if (!bFound)
-							{
-								TrianglesToRender.Add(Triangle);
-							}
-						}
-
-						// 如果没有需要渲染的三角形，跳过
-						if (TrianglesToRender.Num() == 0)
-							continue;
-
-						// 渲染该面（只渲染剩余的三角形）
-						AddTriangularComplementFaceSingleRender(X, Y, Z, FaceIndex, Voxel, DirectionIndex, TrianglesToRender);
-						break;
-					}
+						Triangles.Add(BaseIndex + Face.X);
+						Triangles.Add(BaseIndex + Face.Y);
+						Triangles.Add(BaseIndex + Face.Z);
 					}
 				}
 			}
 		}
-	}
-}
-
-void AVoxelTile::AddFaceRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat, const TArray<FIntTriangle>& TrianglesToRender)
-{
-	if (FaceIndex < 0 || FaceIndex >= 7)
-		return;
-
-	// 计算体素在世界空间中的位置（Unreal中Z向上）
-	FVector BasePos = FVector(X * VoxelSize - (VOXEL_TILE_SIZE_X / 2) * VoxelSize, Y * VoxelSize - (VOXEL_TILE_SIZE_Y / 2) * VoxelSize, Z * VoxelSize - (VOXEL_TILE_SIZE_Z / 2) * VoxelSize);
-
-	// 获取当前面的法向量
-	FVector Normal = FaceNormals[FaceIndex];
-
-	// 获取当前面的顶点索引定义（Box使用统一的7个面结构）
-	const FaceIndices& FaceDef = BoxFaces[FaceIndex];
-	int32 NumVerts = FaceDef.Count;
-
-	// 如果面不存在（Count为0），直接返回
-	if (NumVerts == 0)
-		return;
-
-	// 计算当前面的基础索引（用于三角形索引）
-	int32 BaseIndex = Vertices.Num();
-
-	// 如果指定了要渲染的三角形，先获取面的所有三角形，然后过滤
-	TArray<FIntTriangle> AllFaceTriangles;
-	if (TrianglesToRender.Num() > 0)
-	{
-		GetFaceTriangles(X, Y, Z, FaceIndex, UCVoxelBlockType_Cube, 0, Voxel, bFlat, AllFaceTriangles);
-	}
-
-	if (bFlat)
-	{
-		// 简单模式：4顶点 + 2三角形（原来的方式）
-		for (int32 i = 0; i < NumVerts; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			FVector LocalVertex = BaseCubeVertices[VertexIndex];
-			FVector VertexOffset = LocalVertex * VoxelSize;
-			FVector VertexPos = BasePos + VertexOffset;
-			Vertices.Add(VertexPos);
-			Normals.Add(Normal);
-
-			// UV坐标（从缓存读取）
-			FVector2D UV = BaseCubeUVs[VertexIndex][FaceIndex];
-			UVs.Add(UV);
-
-			// 顶点颜色（简单模式：白色）
-			FColor Color = FColor::White;
-			if (Voxel.TextureID > 0)
-			{
-				uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-				Color = FColor(Gray, Gray, Gray, 255);
-			}
-			VertexColors.Add(Color);
-
-			// 切线
-			Tangents.Add(FProcMeshTangent(0, 0, 1));
-		}
-
-		// 将局部顶点索引转换为网格坐标的辅助函数
-		auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
-			{
-				if (VertexIndex < 0 || VertexIndex >= 8)
-					return FIntVector::ZeroValue;
-				const FVector& LocalVertex = BaseCubeVertices[VertexIndex];
-				return FIntVector(
-					X + (int32)LocalVertex.X,
-					Y + (int32)LocalVertex.Y,
-					Z + (int32)LocalVertex.Z
-				);
-			};
-
-		// 定义两个三角形的顶点坐标
-		FIntTriangle Tri1(
-			ConvertVertexIndexToGridPos(FaceDef.Indices[0]),
-			ConvertVertexIndexToGridPos(FaceDef.Indices[2]),
-			ConvertVertexIndexToGridPos(FaceDef.Indices[1])
-		);
-		Tri1 = SortTriangleVertices(Tri1.V0, Tri1.V1, Tri1.V2);
-
-		FIntTriangle Tri2(
-			ConvertVertexIndexToGridPos(FaceDef.Indices[0]),
-			ConvertVertexIndexToGridPos(FaceDef.Indices[3]),
-			ConvertVertexIndexToGridPos(FaceDef.Indices[2])
-		);
-		Tri2 = SortTriangleVertices(Tri2.V0, Tri2.V1, Tri2.V2);
-
-		// 如果指定了要渲染的三角形，只渲染匹配的
-		if (TrianglesToRender.Num() > 0)
-		{
-			bool bRenderTri1 = false;
-			bool bRenderTri2 = false;
-
-			for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-			{
-				if (TriangleToRender == Tri1)
-					bRenderTri1 = true;
-				if (TriangleToRender == Tri2)
-					bRenderTri2 = true;
-			}
-
-			// 第一个三角形
-			if (bRenderTri1)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(BaseIndex + 2);
-				Triangles.Add(BaseIndex + 1);
-			}
-
-			// 第二个三角形
-			if (bRenderTri2)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(BaseIndex + 3);
-				Triangles.Add(BaseIndex + 2);
-			}
-		}
-		else
-		{
-			// 没有指定，渲染所有三角形
-			// 第一个三角形
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(BaseIndex + 2);
-			Triangles.Add(BaseIndex + 1);
-
-			// 第二个三角形
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(BaseIndex + 3);
-			Triangles.Add(BaseIndex + 2);
-		}
-	}
-	else
-	{
-		// AO模式：5顶点（4个角+1个中心）+ 4个三角形
-
-		// 计算中心点
-		FVector Center = FVector::ZeroVector;
-		for (int32 i = 0; i < NumVerts; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			Center += BaseCubeVertices[VertexIndex];
-		}
-		Center = Center / NumVerts * VoxelSize;
-		FVector CenterPos = BasePos + Center;
-
-		// 获取方向向量用于检查相邻体素
-		FIntVector Direction = FaceDirections[FaceIndex];
-
-		// 添加4个角顶点 + 1个中心顶点
-		for (int32 i = 0; i < 5; ++i)
-		{
-			FVector VertexPos;
-			FVector2D UV;
-
-			if (i < NumVerts)
-			{
-				// 角顶点
-				int32 VertexIndex = FaceDef.Indices[i];
-				FVector LocalVertex = BaseCubeVertices[VertexIndex];
-				FVector VertexOffset = LocalVertex * VoxelSize;
-				VertexPos = BasePos + VertexOffset;
-
-				// UV坐标（从缓存读取）
-				UV = BaseCubeUVs[VertexIndex][FaceIndex];
-			}
-			else
-			{
-				// 中心顶点
-				VertexPos = CenterPos;
-
-				// UV坐标（中心点，所有面都是0.5, 0.5）
-				UV = FVector2D(0.5f, 0.5f);
-			}
-
-			Vertices.Add(VertexPos);
-			Normals.Add(Normal);
-			UVs.Add(UV);
-
-			// 顶点颜色（AO）
-			FColor Color = FColor::White;
-			// 			if (i < 4)
-			// 			{
-			// 				// 角顶点：检查是否有相邻体素，如果有则添加阴影
-			// 				FIntVector CornerOffset;
-			// 				if (i == 0) // 左下
-			// 					CornerOffset = FIntVector(-1, -1, 0);
-			// 				else if (i == 1) // 右下
-			// 					CornerOffset = FIntVector(1, -1, 0);
-			// 				else if (i == 2) // 右上
-			// 					CornerOffset = FIntVector(1, 1, 0);
-			// 				else // 左上
-			// 					CornerOffset = FIntVector(-1, 1, 0);
-			// 				
-			// 				// 调整CornerOffset到正确的坐标系
-			// 				if (FaceIndex < 4) // 侧面
-			// 				{
-			// 					if (FaceIndex == 0) // Left: CornerOffset应该是(-1,0,-1), (1,0,-1), (1,0,1), (-1,0,1)在XZ平面
-			// 					{
-			// 						if (i == 0) CornerOffset = FIntVector(-1, 0, -1);
-			// 						else if (i == 1) CornerOffset = FIntVector(1, 0, -1);
-			// 						else if (i == 2) CornerOffset = FIntVector(1, 0, 1);
-			// 						else CornerOffset = FIntVector(-1, 0, 1);
-			// 					}
-			// 					else if (FaceIndex == 1) // Front
-			// 					{
-			// 						if (i == 0) CornerOffset = FIntVector(0, -1, -1);
-			// 						else if (i == 1) CornerOffset = FIntVector(0, 1, -1);
-			// 						else if (i == 2) CornerOffset = FIntVector(0, 1, 1);
-			// 						else CornerOffset = FIntVector(0, -1, 1);
-			// 					}
-			// 					else if (FaceIndex == 2) // Right
-			// 					{
-			// 						if (i == 0) CornerOffset = FIntVector(1, 0, -1);
-			// 						else if (i == 1) CornerOffset = FIntVector(-1, 0, -1);
-			// 						else if (i == 2) CornerOffset = FIntVector(-1, 0, 1);
-			// 						else CornerOffset = FIntVector(1, 0, 1);
-			// 					}
-			// 					else // Back
-			// 					{
-			// 						if (i == 0) CornerOffset = FIntVector(0, 1, -1);
-			// 						else if (i == 1) CornerOffset = FIntVector(0, -1, -1);
-			// 						else if (i == 2) CornerOffset = FIntVector(0, -1, 1);
-			// 						else CornerOffset = FIntVector(0, 1, 1);
-			// 					}
-			// 				}
-			// 				else if (FaceIndex == 4) // Top
-			// 				{
-			// 					if (i == 0) CornerOffset = FIntVector(-1, -1, 1);
-			// 					else if (i == 1) CornerOffset = FIntVector(1, -1, 1);
-			// 					else if (i == 2) CornerOffset = FIntVector(1, 1, 1);
-			// 					else CornerOffset = FIntVector(-1, 1, 1);
-			// 				}
-			// 				else // Bottom
-			// 				{
-			// 					if (i == 0) CornerOffset = FIntVector(-1, 1, -1);
-			// 					else if (i == 1) CornerOffset = FIntVector(1, 1, -1);
-			// 					else if (i == 2) CornerOffset = FIntVector(1, -1, -1);
-			// 					else CornerOffset = FIntVector(-1, -1, -1);
-			// 				}
-			// 				
-			// 				// 检查对角相邻体素是否存在
-			// 				int32 DiagX = X + Direction.X + CornerOffset.X;
-			// 				int32 DiagY = Y + Direction.Y + CornerOffset.Y;
-			// 				int32 DiagZ = Z + Direction.Z + CornerOffset.Z;
-			// 				
-			// 				// 如果对角相邻体素存在，添加阴影（降低亮度）
-			// 				if (!IsVoxelEmpty(DiagX, DiagY, DiagZ))
-			// 				{
-			// 					// 角落有阴影：使用较暗的颜色（约0.6-0.7的亮度）
-			// 					uint8 AOValue = 160; // 约0.63的亮度
-			// 					Color = FColor(AOValue, AOValue, AOValue, 255);
-			// 				}
-			// 				else
-			// 				{
-			// 					Color = FColor::White;
-			// 				}
-			// 				
-			// 				if (Voxel.TextureID > 0)
-			// 				{
-			// 					uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-			// 					Color = FColor(
-			// 						FMath::Min((uint32)Color.R * Gray / 255, 255u),
-			// 						FMath::Min((uint32)Color.G * Gray / 255, 255u),
-			// 						FMath::Min((uint32)Color.B * Gray / 255, 255u),
-			// 						255
-			// 					);
-			// 				}
-			// 			}
-			// 			else
-			{
-				// 中心顶点：无阴影，保持白色
-				if (Voxel.TextureID > 0)
-				{
-					uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-					Color = FColor(Gray, Gray, Gray, 255);
-				}
-			}
-
-			VertexColors.Add(Color);
-
-			// 切线
-			Tangents.Add(FProcMeshTangent(0, 0, 1));
-		}
-
-		// 添加4个三角形（从中心到每个角，连接相邻的角，逆时针顺序确保外表面正确渲染）
-		// 三角形0: 中心, 角0, 角1
-		Triangles.Add(BaseIndex + 4); // 中心
-		Triangles.Add(BaseIndex + 1); // 角0
-		Triangles.Add(BaseIndex + 0); // 角1
-
-		// 三角形1: 中心, 角1, 角2
-		Triangles.Add(BaseIndex + 4); // 中心
-		Triangles.Add(BaseIndex + 2); // 角1
-		Triangles.Add(BaseIndex + 1); // 角2
-
-		// 三角形2: 中心, 角2, 角3
-		Triangles.Add(BaseIndex + 4); // 中心
-		Triangles.Add(BaseIndex + 3); // 角2
-		Triangles.Add(BaseIndex + 2); // 角3
-
-		// 三角形3: 中心, 角3, 角0
-		Triangles.Add(BaseIndex + 4); // 中心
-		Triangles.Add(BaseIndex + 0); // 角3
-		Triangles.Add(BaseIndex + 3); // 角0
-	}
-}
-
-void AVoxelTile::AddSquareSlopeFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender)
-{
-	if (FaceIndex < 0 || FaceIndex >= 7)
-		return;
-
-	// 计算体素在世界空间中的位置
-	FVector BasePos = FVector(X * VoxelSize - (VOXEL_TILE_SIZE_X / 2) * VoxelSize, Y * VoxelSize - (VOXEL_TILE_SIZE_Y / 2) * VoxelSize, Z * VoxelSize - (VOXEL_TILE_SIZE_Z / 2) * VoxelSize);
-
-	int32 BaseIndex = Vertices.Num();
-
-	FVoxelBlockShapeGenerator* BlockShapeGenerator = GetBlockShapeGenerator();
-	int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->SlopeFaceDirectionsReverse[DirectionIndex][FaceIndex];
-	const FaceIndices& FaceDef = BlockShapeGenerator->SlopeFaces[DirectionIndex][RelativeFaceIndex];
-
-	int32 NumVerts = FaceDef.Count;
-
-	// 如果面不存在（Count为0），直接返回
-	if (NumVerts == 0)
-		return;
-
-	// 计算顶点位置
-	FVector Verts[4];
-	for (int32 i = 0; i < NumVerts; ++i)
-	{
-		int32 VertexIndex = FaceDef.Indices[i];
-		FVector LocalVertex = BaseCubeVertices[VertexIndex];
-		// 对于楔形体，顶点6需要特殊处理（从(1,1,1)保持不变，因为是从(0,0,0)到(1,1,1)的楔形）
-		Verts[i] = BasePos + LocalVertex * VoxelSize;
-	}
-
-	// 计算中心点（使用四个点）
-	// 不管NumVerts是多少，都尝试使用FaceDef.Indices的前4个索引
-	FVector Center(0, 0, 0);
-	// 中心点的UV坐标（使用四个点的平均UV）
-	FVector2D CenterUV(0, 0);
-	for (int32 i = 0; i < 4; ++i)
-	{
-		int32 VertexIndex = FaceDef.Indices[i];
-		// 使用BaseCubeVertices计算顶点位置
-		FVector LocalVertex = BaseCubeVertices[VertexIndex];
-		FVector VertexPos = BasePos + LocalVertex * VoxelSize;
-		Center += VertexPos;
-		CenterUV += BaseCubeUVs[VertexIndex][FaceIndex];
-	}
-	Center = Center / 4.0f;
-	CenterUV = CenterUV / 4.0f;
-
-	// 计算法向量
-	FVector Normal;
-	if (NumVerts == 3)
-	{
-		FVector Edge1 = Verts[1] - Verts[0];
-		FVector Edge2 = Verts[2] - Verts[0];
-		Normal = FVector::CrossProduct(Edge1, Edge2).GetSafeNormal();
-	}
-	else
-	{
-		FVector Edge1 = Verts[1] - Verts[0];
-		FVector Edge2 = Verts[3] - Verts[0];
-		Normal = FVector::CrossProduct(Edge1, Edge2).GetSafeNormal();
-	}
-
-	// 添加原始顶点
-	for (int32 i = 0; i < NumVerts; ++i)
-	{
-		Vertices.Add(Verts[i]);
-		Normals.Add(Normal);
-
-		// UV坐标（从缓存读取）
-		int32 VertexIndex = FaceDef.Indices[i];
-		FVector2D UV = BaseCubeUVs[VertexIndex][FaceIndex];
-		UVs.Add(UV);
-
-		// 顶点颜色
-		FColor Color = FColor::White;
-		if (Voxel.TextureID > 0)
-		{
-			uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-			Color = FColor(Gray, Gray, Gray, 255);
-		}
-		VertexColors.Add(Color);
-
-		// 切线
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
-	}
-
-	// 添加中心点
-	int32 CenterIndex = BaseIndex + NumVerts;
-	Vertices.Add(Center);
-	Normals.Add(Normal);
-	UVs.Add(CenterUV);
-
-	FColor CenterColor = FColor::White;
-	if (Voxel.TextureID > 0)
-	{
-		uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-		CenterColor = FColor(Gray, Gray, Gray, 255);
-	}
-	VertexColors.Add(CenterColor);
-	Tangents.Add(FProcMeshTangent(0, 0, 1));
-
-	// 将局部顶点索引转换为网格坐标的辅助函数
-	auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
-		{
-			if (VertexIndex < 0 || VertexIndex >= 8)
-				return FIntVector::ZeroValue;
-			const FVector& LocalVertex = BaseCubeVertices[VertexIndex];
-			return FIntVector(
-				X + (int32)LocalVertex.X,
-				Y + (int32)LocalVertex.Y,
-				Z + (int32)LocalVertex.Z
-			);
-		};
-
-	// 计算中心点的网格坐标
-	FIntVector CenterGrid(0, 0, 0);
-	int32 NumPointsForCenter = 0;
-	for (int32 i = 0; i < 4; ++i)
-	{
-		int32 VertexIndex = FaceDef.Indices[i];
-		if (VertexIndex == -1)
-			break;
-		FIntVector V = ConvertVertexIndexToGridPos(VertexIndex);
-		CenterGrid += V;
-		NumPointsForCenter++;
-	}
-	if (NumPointsForCenter > 0)
-	{
-		CenterGrid.X /= NumPointsForCenter;
-		CenterGrid.Y /= NumPointsForCenter;
-		CenterGrid.Z /= NumPointsForCenter;
-	}
-
-	// 添加三角形（使用中心点拆分）
-	if (NumVerts == 3)
-	{
-		// 三角形拆解成2个三角形
-		FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-		FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-		FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-
-		FIntTriangle Tri1 = SortTriangleVertices(V0, CenterGrid, V1);
-		FIntTriangle Tri2 = SortTriangleVertices(V0, V2, CenterGrid);
-
-		// 如果指定了要渲染的三角形，只渲染匹配的
-		if (TrianglesToRender.Num() > 0)
-		{
-			bool bRenderTri1 = false;
-			bool bRenderTri2 = false;
-
-			for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-			{
-				if (TriangleToRender == Tri1)
-					bRenderTri1 = true;
-				if (TriangleToRender == Tri2)
-					bRenderTri2 = true;
-			}
-
-			if (bRenderTri1)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 1);
-			}
-
-			if (bRenderTri2)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(BaseIndex + 2);
-				Triangles.Add(CenterIndex);
-			}
-		}
-		else
-		{
-			// 没有指定，渲染所有三角形
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(CenterIndex);
-			Triangles.Add(BaseIndex + 1);
-
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(BaseIndex + 2);
-			Triangles.Add(CenterIndex);
-		}
-	}
-	else
-	{
-		// 四边形拆解成4个三角形
-		FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-		FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-		FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-		FIntVector V3 = ConvertVertexIndexToGridPos(FaceDef.Indices[3]);
-
-		FIntTriangle Tri1 = SortTriangleVertices(V0, CenterGrid, V1);
-		FIntTriangle Tri2 = SortTriangleVertices(V1, CenterGrid, V2);
-		FIntTriangle Tri3 = SortTriangleVertices(V2, CenterGrid, V3);
-		FIntTriangle Tri4 = SortTriangleVertices(V3, CenterGrid, V0);
-
-		// 如果指定了要渲染的三角形，只渲染匹配的
-		if (TrianglesToRender.Num() > 0)
-		{
-			bool bRenderTri1 = false, bRenderTri2 = false, bRenderTri3 = false, bRenderTri4 = false;
-
-			for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-			{
-				if (TriangleToRender == Tri1) bRenderTri1 = true;
-				if (TriangleToRender == Tri2) bRenderTri2 = true;
-				if (TriangleToRender == Tri3) bRenderTri3 = true;
-				if (TriangleToRender == Tri4) bRenderTri4 = true;
-			}
-
-			if (bRenderTri1)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 1);
-			}
-
-			if (bRenderTri2)
-			{
-				Triangles.Add(BaseIndex + 1);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 2);
-			}
-
-			if (bRenderTri3)
-			{
-				Triangles.Add(BaseIndex + 2);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 3);
-			}
-
-			if (bRenderTri4)
-			{
-				Triangles.Add(BaseIndex + 3);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 0);
-			}
-		}
-		else
-		{
-			// 没有指定，渲染所有三角形
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(CenterIndex);
-			Triangles.Add(BaseIndex + 1);
-
-			Triangles.Add(BaseIndex + 1);
-			Triangles.Add(CenterIndex);
-			Triangles.Add(BaseIndex + 2);
-
-			Triangles.Add(BaseIndex + 2);
-			Triangles.Add(CenterIndex);
-			Triangles.Add(BaseIndex + 3);
-
-			Triangles.Add(BaseIndex + 3);
-			Triangles.Add(CenterIndex);
-			Triangles.Add(BaseIndex + 0);
-		}
-	}
-}
-
-void AVoxelTile::AddTriangularSlopeFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender)
-{
-	if (FaceIndex < 0 || FaceIndex >= 7)
-		return;
-
-	// 计算体素在世界空间中的位置
-	FVector BasePos = FVector(X * VoxelSize - (VOXEL_TILE_SIZE_X / 2) * VoxelSize, Y * VoxelSize - (VOXEL_TILE_SIZE_Y / 2) * VoxelSize, Z * VoxelSize - (VOXEL_TILE_SIZE_Z / 2) * VoxelSize);
-
-	int32 BaseIndex = Vertices.Num();
-
-	FVoxelBlockShapeGenerator* BlockShapeGenerator = GetBlockShapeGenerator();
-	int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->TriSlopeFaceDirectionsReverse[DirectionIndex][FaceIndex];
-	// 确保RelativeFaceIndex在有效范围内
-	if (RelativeFaceIndex < 0 || RelativeFaceIndex >= 7)
-		return;
-
-	const FaceIndices& FaceDef = BlockShapeGenerator->TriSlopeFaces[DirectionIndex][RelativeFaceIndex];
-
-	int32 NumVerts = FaceDef.Count;
-	// 如果面不存在（Count为0），直接返回
-	if (NumVerts == 0)
-		return;
-
-	// 确保NumVerts不超过3（三角锥的面最多3个顶点）
-	if (NumVerts > 3)
-		NumVerts = 3;
-
-	// 计算顶点位置
-	FVector Verts[3];
-	for (int32 i = 0; i < NumVerts; ++i)
-	{
-		int32 VertexIndex = FaceDef.Indices[i];
-		if (VertexIndex < 0 || VertexIndex >= 8)
-			return; // 无效的顶点索引
-		FVector LocalVertex = BaseCubeVertices[VertexIndex];
-		Verts[i] = BasePos + LocalVertex * VoxelSize;
-	}
-
-	// 计算中心点（使用四个点）
-	// 不管NumVerts是多少，都尝试使用FaceDef.Indices的前4个索引
-	FVector Center(0, 0, 0);
-	FVector2D CenterUV(0, 0);
-
-	if (FaceIndex < 6)
-	{
-		int32 NumPointsForCenter = 0;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			if (VertexIndex < 0 || VertexIndex >= 8)
-				break; // 遇到无效索引，停止
-			// 使用BaseCubeVertices计算顶点位置
-			FVector LocalVertex = BaseCubeVertices[VertexIndex];
-			FVector VertexPos = BasePos + LocalVertex * VoxelSize;
-			Center += VertexPos;
-			CenterUV += BaseCubeUVs[VertexIndex][FaceIndex];
-			NumPointsForCenter++;
-		}
-		if (NumPointsForCenter > 0)
-		{
-			Center = Center / (float)NumPointsForCenter;
-			CenterUV = CenterUV / (float)NumPointsForCenter;
-		}
-	}
-
-	// 计算三角形法向量
-	FVector Edge1 = Verts[1] - Verts[0];
-	FVector Edge2 = Verts[2] - Verts[0];
-	FVector TriNormal = FVector::CrossProduct(Edge1, Edge2).GetSafeNormal();
-
-	// 添加3个原始顶点
-	for (int32 i = 0; i < NumVerts; ++i)
-	{
-		Vertices.Add(Verts[i]);
-		Normals.Add(TriNormal);
-
-		// UV坐标（从缓存读取）
-		int32 VertexIndex = FaceDef.Indices[i];
-		if (VertexIndex < 0 || VertexIndex >= 8 || FaceIndex < 0 || FaceIndex > 6)
-			return; // 无效的索引
-		FVector2D UV = BaseCubeUVs[VertexIndex][FaceIndex];
-		UVs.Add(UV);
-
-		// 顶点颜色
-		FColor Color = FColor::White;
-		if (Voxel.TextureID > 0)
-		{
-			uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-			Color = FColor(Gray, Gray, Gray, 255);
-		}
-		VertexColors.Add(Color);
-
-		// 切线
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
-	}
-
-	// 添加中心点
-	int32 CenterIndex = BaseIndex + NumVerts;
-	if (FaceIndex < 6)
-	{
-		Vertices.Add(Center);
-		Normals.Add(TriNormal);
-		UVs.Add(CenterUV);
-
-		FColor CenterColor = FColor::White;
-		if (Voxel.TextureID > 0)
-		{
-			uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-			CenterColor = FColor(Gray, Gray, Gray, 255);
-		}
-		VertexColors.Add(CenterColor);
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
-
-		// 将局部顶点索引转换为网格坐标的辅助函数
-		auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
-			{
-				if (VertexIndex < 0 || VertexIndex >= 8)
-					return FIntVector::ZeroValue;
-				const FVector& LocalVertex = BaseCubeVertices[VertexIndex];
-				return FIntVector(
-					X + (int32)LocalVertex.X,
-					Y + (int32)LocalVertex.Y,
-					Z + (int32)LocalVertex.Z
-				);
-			};
-
-		// 计算中心点的网格坐标
-		FIntVector CenterGrid(0, 0, 0);
-		int32 NumPointsForCenterGrid = 0;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			if (VertexIndex < 0 || VertexIndex >= 8)
-				break; // 遇到无效索引，停止
-			FIntVector V = ConvertVertexIndexToGridPos(VertexIndex);
-			CenterGrid += V;
-			NumPointsForCenterGrid++;
-		}
-		if (NumPointsForCenterGrid > 0)
-		{
-			CenterGrid.X /= NumPointsForCenterGrid;
-			CenterGrid.Y /= NumPointsForCenterGrid;
-			CenterGrid.Z /= NumPointsForCenterGrid;
-		}
-
-		// 确保索引有效
-		if (FaceDef.Indices[0] < 0 || FaceDef.Indices[0] >= 8 ||
-			FaceDef.Indices[1] < 0 || FaceDef.Indices[1] >= 8 ||
-			FaceDef.Indices[2] < 0 || FaceDef.Indices[2] >= 8)
-			return; // 无效的顶点索引
-
-		FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-		FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-		FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-
-		FIntTriangle Tri1 = SortTriangleVertices(V0, CenterGrid, V1);
-		FIntTriangle Tri2 = SortTriangleVertices(V0, V2, CenterGrid);
-
-		// 如果指定了要渲染的三角形，只渲染匹配的
-		if (TrianglesToRender.Num() > 0)
-		{
-			bool bRenderTri1 = false;
-			bool bRenderTri2 = false;
-
-			for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-			{
-				if (TriangleToRender == Tri1)
-					bRenderTri1 = true;
-				if (TriangleToRender == Tri2)
-					bRenderTri2 = true;
-			}
-
-			if (bRenderTri1)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 1);
-			}
-
-			if (bRenderTri2)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(BaseIndex + 2);
-				Triangles.Add(CenterIndex);
-			}
-		}
-		else
-		{
-			// 没有指定，渲染所有三角形
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(BaseIndex + 2);
-			Triangles.Add(BaseIndex + 1);
-		}
-	}
-	else
-	{
-		// FaceIndex == 6，单个三角形
-		// 将局部顶点索引转换为网格坐标的辅助函数
-		auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
-			{
-				if (VertexIndex < 0 || VertexIndex >= 8)
-					return FIntVector::ZeroValue;
-				const FVector& LocalVertex = BaseCubeVertices[VertexIndex];
-				return FIntVector(
-					X + (int32)LocalVertex.X,
-					Y + (int32)LocalVertex.Y,
-					Z + (int32)LocalVertex.Z
-				);
-			};
-
-		FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-		FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-		FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-		FIntTriangle Tri = SortTriangleVertices(V0, V2, V1);
-
-		// 如果指定了要渲染的三角形，只渲染匹配的
-		if (TrianglesToRender.Num() > 0)
-		{
-			bool bRender = false;
-			for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-			{
-				if (TriangleToRender == Tri)
-				{
-					bRender = true;
-					break;
-				}
-			}
-
-			if (bRender)
-			{
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(BaseIndex + 2);
-				Triangles.Add(BaseIndex + 1);
-			}
-		}
-		else
-		{
-			// 没有指定，渲染所有三角形
-			Triangles.Add(BaseIndex + 0);
-			Triangles.Add(BaseIndex + 2);
-			Triangles.Add(BaseIndex + 1);
-		}
-	}
-}
-
-void AVoxelTile::AddTriangularComplementFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender)
-{
-	if (FaceIndex < 0 || FaceIndex >= 7)
-		return;
-
-	// 计算体素在世界空间中的位置
-	FVector BasePos = FVector(X * VoxelSize - (VOXEL_TILE_SIZE_X / 2) * VoxelSize, Y * VoxelSize - (VOXEL_TILE_SIZE_Y / 2) * VoxelSize, Z * VoxelSize - (VOXEL_TILE_SIZE_Z / 2) * VoxelSize);
-
-	int32 BaseIndex = Vertices.Num();
-
-	FVoxelBlockShapeGenerator* BlockShapeGenerator = GetBlockShapeGenerator();
-	int32 RelativeFaceIndex = FaceIndex > 5 ? FaceIndex : BlockShapeGenerator->TriSlopeComplementFaceDirectionsReverse[DirectionIndex][FaceIndex];
-	const FaceIndices& FaceDef = BlockShapeGenerator->TriSlopeComplementFaces[DirectionIndex][RelativeFaceIndex];
-
-	int32 NumVerts = FaceDef.Count;
-	// 如果面不存在（Count为0），直接返回
-	if (NumVerts == 0)
-		return;
-
-	// 计算顶点位置
-	FVector Verts[4];
-	for (int32 i = 0; i < NumVerts; ++i)
-	{
-		int32 VertexIndex = FaceDef.Indices[i];
-		FVector LocalVertex = BaseCubeVertices[VertexIndex];
-		Verts[i] = BasePos + LocalVertex * VoxelSize;
-	}
-
-	// 计算中心点（使用四个点）
-	// 不管NumVerts是多少，都尝试使用FaceDef.Indices的前4个索引
-	FVector Center(0, 0, 0);
-	int32 NumPointsForCenter = 4;
-	for (int32 i = 0; i < 4; ++i)
-	{
-		int32 VertexIndex = FaceDef.Indices[i];
-		if (VertexIndex == -1)
-		{
-			NumPointsForCenter--;
-			continue; // 跳过-1索引
-		}
-		// 使用BaseCubeVertices计算顶点位置
-		FVector LocalVertex = BaseCubeVertices[VertexIndex];
-		FVector VertexPos = BasePos + LocalVertex * VoxelSize;
-		Center += VertexPos;
-	}
-	if (NumPointsForCenter > 0)
-	{
-		Center = Center / (float)NumPointsForCenter;
-	}
-
-	// 计算法向量
-	FVector Normal;
-	if (NumVerts == 3)
-	{
-		FVector Edge1 = Verts[1] - Verts[0];
-		FVector Edge2 = Verts[2] - Verts[0];
-		Normal = FVector::CrossProduct(Edge1, Edge2).GetSafeNormal();
-	}
-	else
-	{
-		FVector Edge1 = Verts[1] - Verts[0];
-		FVector Edge2 = Verts[3] - Verts[0];
-		Normal = FVector::CrossProduct(Edge1, Edge2).GetSafeNormal();
-	}
-
-	// 添加原始顶点
-	for (int32 i = 0; i < NumVerts; ++i)
-	{
-		Vertices.Add(Verts[i]);
-		Normals.Add(Normal);
-
-		// UV坐标（从缓存读取）
-		int32 VertexIndex = FaceDef.Indices[i];
-		FVector2D UV = BaseCubeUVs[VertexIndex][FaceIndex];
-		UVs.Add(UV);
-
-		// 顶点颜色
-		FColor Color = FColor::White;
-		if (Voxel.TextureID > 0)
-		{
-			uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-			Color = FColor(Gray, Gray, Gray, 255);
-		}
-		VertexColors.Add(Color);
-
-		// 切线
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
-	}
-
-	// 添加中心点
-	int32 CenterIndex = BaseIndex + NumVerts;
-	if (FaceIndex < 6)
-	{
-		Vertices.Add(Center);
-		Normals.Add(Normal);
-		// 中心点的UV坐标（使用四个点的平均UV）
-		FVector2D CenterUV(0, 0);
-		int32 NumPointsForCenterUV = 4;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			if (VertexIndex == -1)
-			{
-				NumPointsForCenterUV--;
-				continue; // 跳过-1索引
-			}
-			CenterUV += BaseCubeUVs[VertexIndex][FaceIndex];
-		}
-		if (NumPointsForCenterUV > 0)
-		{
-			CenterUV = CenterUV / (float)NumPointsForCenterUV;
-		}
-		UVs.Add(CenterUV);
-
-		FColor CenterColor = FColor::White;
-		if (Voxel.TextureID > 0)
-		{
-			uint8 Gray = FMath::Clamp(Voxel.TextureID * 255 / 255, (uint8)64, (uint8)255);
-			CenterColor = FColor(Gray, Gray, Gray, 255);
-		}
-		VertexColors.Add(CenterColor);
-		Tangents.Add(FProcMeshTangent(0, 0, 1));
-
-		// 将局部顶点索引转换为网格坐标的辅助函数
-		auto ConvertVertexIndexToGridPos = [X, Y, Z](int32 VertexIndex) -> FIntVector
-			{
-				if (VertexIndex < 0 || VertexIndex >= 8)
-					return FIntVector::ZeroValue;
-				const FVector& LocalVertex = BaseCubeVertices[VertexIndex];
-				return FIntVector(
-					X + (int32)LocalVertex.X,
-					Y + (int32)LocalVertex.Y,
-					Z + (int32)LocalVertex.Z
-				);
-			};
-
-		// 计算中心点的网格坐标
-		FIntVector CenterGrid(0, 0, 0);
-		int32 NumPointsForCenterGrid = 0;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			if (VertexIndex == -1)
-				break;
-			FIntVector V = ConvertVertexIndexToGridPos(VertexIndex);
-			CenterGrid += V;
-			NumPointsForCenterGrid++;
-		}
-		if (NumPointsForCenterGrid > 0)
-		{
-			CenterGrid.X /= NumPointsForCenterGrid;
-			CenterGrid.Y /= NumPointsForCenterGrid;
-			CenterGrid.Z /= NumPointsForCenterGrid;
-		}
-
-		// 添加三角形（使用中心点拆分）
-		if (NumVerts == 3)
-		{
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-			if (FaceIndex < 6)
-			{
-				FIntTriangle Tri1 = SortTriangleVertices(V0, CenterGrid, V1);
-				FIntTriangle Tri2 = SortTriangleVertices(V0, V2, CenterGrid);
-
-				// 如果指定了要渲染的三角形，只渲染匹配的
-				if (TrianglesToRender.Num() > 0)
-				{
-					bool bRenderTri1 = false;
-					bool bRenderTri2 = false;
-
-					for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-					{
-						if (TriangleToRender == Tri1)
-							bRenderTri1 = true;
-						if (TriangleToRender == Tri2)
-							bRenderTri2 = true;
-					}
-
-					if (bRenderTri1)
-					{
-						Triangles.Add(BaseIndex + 0);
-						Triangles.Add(CenterIndex);
-						Triangles.Add(BaseIndex + 1);
-					}
-
-					if (bRenderTri2)
-					{
-						Triangles.Add(BaseIndex + 0);
-						Triangles.Add(BaseIndex + 2);
-						Triangles.Add(CenterIndex);
-					}
-				}
-				else
-				{
-					// 没有指定，渲染所有三角形
-					Triangles.Add(BaseIndex + 0);
-					Triangles.Add(CenterIndex);
-					Triangles.Add(BaseIndex + 1);
-
-					Triangles.Add(BaseIndex + 0);
-					Triangles.Add(BaseIndex + 2);
-					Triangles.Add(CenterIndex);
-				}
-			}
-		}
-		else
-		{
-			// 四边形拆解成4个三角形
-			FIntVector V0 = ConvertVertexIndexToGridPos(FaceDef.Indices[0]);
-			FIntVector V1 = ConvertVertexIndexToGridPos(FaceDef.Indices[1]);
-			FIntVector V2 = ConvertVertexIndexToGridPos(FaceDef.Indices[2]);
-			FIntVector V3 = ConvertVertexIndexToGridPos(FaceDef.Indices[3]);
-
-			FIntTriangle Tri1 = SortTriangleVertices(V0, CenterGrid, V1);
-			FIntTriangle Tri2 = SortTriangleVertices(V1, CenterGrid, V2);
-			FIntTriangle Tri3 = SortTriangleVertices(V2, CenterGrid, V3);
-			FIntTriangle Tri4 = SortTriangleVertices(V3, CenterGrid, V0);
-
-			// 如果指定了要渲染的三角形，只渲染匹配的
-			if (TrianglesToRender.Num() > 0)
-			{
-				bool bRenderTri1 = false, bRenderTri2 = false, bRenderTri3 = false, bRenderTri4 = false;
-
-				for (const FIntTriangle& TriangleToRender : TrianglesToRender)
-				{
-					if (TriangleToRender == Tri1) bRenderTri1 = true;
-					if (TriangleToRender == Tri2) bRenderTri2 = true;
-					if (TriangleToRender == Tri3) bRenderTri3 = true;
-					if (TriangleToRender == Tri4) bRenderTri4 = true;
-				}
-
-				if (bRenderTri1)
-				{
-					Triangles.Add(BaseIndex + 0);
-					Triangles.Add(CenterIndex);
-					Triangles.Add(BaseIndex + 1);
-				}
-
-				if (bRenderTri2)
-				{
-					Triangles.Add(BaseIndex + 1);
-					Triangles.Add(CenterIndex);
-					Triangles.Add(BaseIndex + 2);
-				}
-
-				if (bRenderTri3)
-				{
-					Triangles.Add(BaseIndex + 2);
-					Triangles.Add(CenterIndex);
-					Triangles.Add(BaseIndex + 3);
-				}
-
-				if (bRenderTri4)
-				{
-					Triangles.Add(BaseIndex + 3);
-					Triangles.Add(CenterIndex);
-					Triangles.Add(BaseIndex + 0);
-				}
-			}
-			else
-			{
-				// 没有指定，渲染所有三角形
-				Triangles.Add(BaseIndex + 0);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 1);
-
-				Triangles.Add(BaseIndex + 1);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 2);
-
-				Triangles.Add(BaseIndex + 2);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 3);
-
-				Triangles.Add(BaseIndex + 3);
-				Triangles.Add(CenterIndex);
-				Triangles.Add(BaseIndex + 0);
-			}
-		}
-	}
-	else
-	{
-		// 没有指定，渲染所有三角形
-		Triangles.Add(BaseIndex + 0);
-		Triangles.Add(BaseIndex + 2);
-		Triangles.Add(BaseIndex + 1);
 	}
 }
 

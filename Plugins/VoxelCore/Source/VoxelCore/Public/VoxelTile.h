@@ -85,15 +85,6 @@ public:
 	static int32 GetNeighborFaceInfo(int32 FaceIndex);
 
 	/**
-	 * 根据面ID获取该面的三角形顶点（排序后的）
-	 * @param X, Y, Z 体素坐标（本地坐标）
-	 * @param FaceIndex 面ID (0=Left, 1=Front, 2=Right, 3=Back, 4=Top, 5=Bottom)
-	 * @return 排序后的三角形顶点（FIntTriangle）
-	 */
-	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
-	FIntTriangle GetFaceTriangleVertices(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
-
-	/**
 	 * 初始化TileData（从地图数据中加载）
 	 * @param TileDataFromMap 从地图数据中获取的TileData
 	 */
@@ -162,22 +153,7 @@ private:
 	void BuildMeshData();
 	
 	/** 获取面的所有三角形（FIntTriangle数组） */
-	void GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntTriangle>& OutTriangles) const;
-	
-	/** 获取相邻面的所有三角形 */
-	void GetNeighborFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, TArray<FIntTriangle>& OutTriangles) const;
-
-	/** 为指定面添加顶点（用于Box）- 渲染阶段 */
-	void AddFaceRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, bool bFlat, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
-	
-	/** 添加斜楔的单个面 - 渲染阶段 */
-	void AddSquareSlopeFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
-	
-	/** 添加三角锥的单个面 - 渲染阶段 */
-	void AddTriangularSlopeFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
-	
-	/** 添加三角锥互补体的单个面 - 渲染阶段 */
-	void AddTriangularComplementFaceSingleRender(int32 X, int32 Y, int32 Z, int32 FaceIndex, const UCVoxelData& Voxel, int32 DirectionIndex, const TArray<FIntTriangle>& TrianglesToRender = TArray<FIntTriangle>());
+	void GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntVertex>& OutVertices, FVector& Normal, TArray<FIntVector>& OutFaceIndexes) const;
 
 	/** 检查面的四个角是否都有相邻体素在同一高度（可用于合并） */
 	bool IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
