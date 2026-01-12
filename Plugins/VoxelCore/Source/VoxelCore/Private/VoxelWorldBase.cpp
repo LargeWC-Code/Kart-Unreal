@@ -9,6 +9,7 @@ purpose:	VoxelWorld - 体素世界管理类实现
 #include "VoxelWorldBase.h"
 #include "Engine/Engine.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInterface.h"
 
 AVoxelWorldBase::AVoxelWorldBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -16,9 +17,31 @@ AVoxelWorldBase::AVoxelWorldBase(const FObjectInitializer& ObjectInitializer)
 	, bAutoCreateTerrain(true)
 	, InitialTerrainSize(64, 64, 64)
 	, VoxelSize(100.0f)
+	, TileMaterial(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickGroup = TG_PrePhysics;
+
+	// 自动加载默认材质 M_VoxelTile
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialFinder(TEXT("/Game/Materials/M_VoxelTile"));
+	if (MaterialFinder.Succeeded())
+	{
+		TileMaterial = MaterialFinder.Object;
+		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Auto-loaded material M_VoxelTile"));
+	}
+	else
+	{
+		// 如果 ConstructorHelpers 失败，尝试使用 LoadObject（运行时加载）
+		TileMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Materials/M_VoxelTile"));
+		if (TileMaterial)
+		{
+			UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Loaded material M_VoxelTile using LoadObject"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("VoxelWorld: Failed to load material M_VoxelTile. Please set TileMaterial manually in the editor."));
+		}
+	}
 
 	// 初始化地图管理器
 	InitializeMapManager();
@@ -81,7 +104,21 @@ UVoxelTerrain* AVoxelWorldBase::CreateTerrain()
 		// 设置地形属性
 		TerrainObject->VoxelSize = VoxelSize;
 		
-		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Created terrain manager"));
+		// 设置材质（从 VoxelWorldBase 传递）
+		TerrainObject->Material = TileMaterial;
+		
+		// 从 MapManager 加载纹理列表
+		TArray<FString> TexturePaths;
+		const UCStringArray& TexturePathArray = MapManager.TextureConfig.AryTexturePaths;
+		for (ucINT i = 0; i < TexturePathArray.GetSize(); ++i)
+		{
+			UCString TexturePathUC = TexturePathArray[i];
+			FString TexturePath = UCStringToFString(TexturePathUC);
+			TexturePaths.Add(TexturePath);
+		}
+		TerrainObject->SetTextureList(TexturePaths);
+		
+		UE_LOG(LogTemp, Log, TEXT("VoxelWorld: Created terrain manager with %d textures"), TexturePaths.Num());
 	}
 	else
 	{

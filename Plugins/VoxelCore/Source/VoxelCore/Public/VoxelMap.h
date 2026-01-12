@@ -196,6 +196,7 @@ struct VOXELCORE_API UCVoxelTileData
 	ucINT			TileY;			// Tile 坐标 Y
 
 	UCIntArray		AryVoxels;
+	UCPointArray	AryTextureID;
 
 	UCVoxelTileData();
 	UCVoxelTileData(ucCONST UCVoxelTileData&);
@@ -250,12 +251,29 @@ struct VOXELCORE_API UCVoxelMapNodeData
 
 SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelMapNodeData, UCVoxelMapNodeData, ucTRUE);
 
+// 纹理配置数据
+struct VOXELCORE_API UCVoxelTextureConfig
+{
+	UCStringArray			AryTexturePaths;
+
+	UCVoxelTextureConfig();
+	UCVoxelTextureConfig(ucCONST UCVoxelTextureConfig&);
+	~UCVoxelTextureConfig();
+
+	UCVoxelTextureConfig& operator =(ucCONST UCVoxelTextureConfig&);
+};
+
+SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelTextureConfig, UCVoxelTextureConfig, ucTRUE);
+
 class VOXELCORE_API UCVoxelMapManager
 {
 public:
 	UCVoxelMapNodeData					Root;
 
 	UCVoxelMapData*						Curr;
+
+	UCVoxelTextureConfig				TextureConfig;		// 纹理配置
+
 public:
 	UCVoxelMapManager();
 	~UCVoxelMapManager();
@@ -266,4 +284,10 @@ public:
 
 	ucBOOL	LoadMap(ucCONST UCString& Filename);
 	ucVOID	SaveMap(ucCONST UCString& Filename);
+
+	/** 加载资源列表（使用默认路径） */
+	ucVOID	LoadResources(ucCONST UCString& BasePath);
+
+	/** 保存资源列表（使用默认路径） */
+	ucVOID	SaveResources(ucCONST UCString& BasePath);
 };

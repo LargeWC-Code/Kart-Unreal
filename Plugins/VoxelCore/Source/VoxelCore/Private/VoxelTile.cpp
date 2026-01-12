@@ -6,7 +6,9 @@ author:		Auto Generated
 purpose:	VoxelTile 实现
 *********************************************************************/
 #include "VoxelTile.h"
+#include "VoxelTerrain.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Engine/Engine.h"
 
 enum
@@ -431,6 +433,8 @@ AVoxelTile::AVoxelTile(const FObjectInitializer& ObjectInitializer)
 	, VoxelSize(100.0f)
 	, Material(nullptr)
 	, TileData(nullptr)
+	, MaterialInstanceDynamic(nullptr)
+	, bMeshUpdatePending(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -516,66 +520,36 @@ UCVoxelData AVoxelTile::GetVoxel(int32 X, int32 Y, int32 Z) const
 	return VoxelData;
 }
 
-FIntVector AVoxelTile::LocalToWorldPosition(const FIntVector& LocalGridPosition) const
-{
-	const int32 HalfTileSizeX = VOXEL_TILE_SIZE_X / 2; // 16
-	const int32 HalfTileSizeY = VOXEL_TILE_SIZE_Y / 2; // 16
-	const int32 HalfTileSizeZ = VOXEL_TILE_SIZE_Z / 2; // 32
-
-	// 将存储坐标转换为相对于Tile中心的局部网格坐标
-	int32 LocalOffsetX = LocalGridPosition.X - HalfTileSizeX;
-	int32 LocalOffsetY = LocalGridPosition.Y - HalfTileSizeY;
-	int32 LocalOffsetZ = LocalGridPosition.Z - HalfTileSizeZ;
-
-	// 获取Tile的世界网格位置（Tile中心在世界网格中的坐标）
-	// Tile的世界网格位置 = TileCoord * TileSize
-	const int32 TileSizeX = VOXEL_TILE_SIZE_X;
-	const int32 TileSizeY = VOXEL_TILE_SIZE_Y;
-	FIntVector TileWorldGridPos(TileCoord.Y * TileSizeX, TileCoord.X * TileSizeY, 0);
-
-	// 计算体素的世界网格坐标（Tile世界网格位置 + 局部偏移）
-	FIntVector WorldGridPos = TileWorldGridPos + FIntVector(
-		LocalOffsetX,
-		LocalOffsetY,
-		LocalOffsetZ
-	);
-
-	return WorldGridPos;
-}
-
 FIntTriangle AVoxelTile::SortTriangleVertices(const FIntVector& V0, const FIntVector& V1, const FIntVector& V2)
 {
-	// 创建一个数组来存储三个顶点
-	FIntVector Vertices[3] = { V0, V1, V2 };
+	int64 Value0 = (int64)V0.Z * 0x10000000000 + (int64)V0.X * 0x100000 + (int64)V0.Y;
+	int64 Value1 = (int64)V1.Z * 0x10000000000 + (int64)V1.X * 0x100000 + (int64)V1.Y;
+	int64 Value2 = (int64)V2.Z * 0x10000000000 + (int64)V2.X * 0x100000 + (int64)V2.Y;
 
-	// 按 Z、X、Y 顺序排序
-	// 比较函数：先比较 Z，如果相等则比较 X，如果还相等则比较 Y
-	auto CompareVertices = [](const FIntVector& A, const FIntVector& B) -> bool
-		{
-			if (A.Z != B.Z)
-				return A.Z < B.Z;  // 先按 Z 排序
-			if (A.X != B.X)
-				return A.X < B.X;  // Z 相等时按 X 排序
-			return A.Y < B.Y;      // Z 和 X 都相等时按 Y 排序
-		};
-
-	// 使用冒泡排序（只有3个元素，简单高效）
-	for (int32 i = 0; i < 3; ++i)
+	if (Value0 < Value1)
 	{
-		for (int32 j = 0; j < 2 - i; ++j)
+		if (Value0 < Value2)
 		{
-			if (!CompareVertices(Vertices[j], Vertices[j + 1]))
-			{
-				// 交换
-				FIntVector Temp = Vertices[j];
-				Vertices[j] = Vertices[j + 1];
-				Vertices[j + 1] = Temp;
-			}
+			if (Value1 < Value2)
+				return FIntTriangle(V0, V1, V2);
+			else
+				return FIntTriangle(V0, V2, V1);
 		}
+		else
+			return FIntTriangle(V2, V0, V1);
 	}
-
-	// 返回排序后的三角形
-	return FIntTriangle(Vertices[0], Vertices[1], Vertices[2]);
+	else
+	{
+		if (Value1 < Value2)
+		{
+			if (Value0 < Value2)
+				return FIntTriangle(V1, V0, V2);
+			else
+				return FIntTriangle(V1, V2, V0);
+		}
+		else
+			return FIntTriangle(V2, V1, V0);
+	}
 }
 
 int32 AVoxelTile::GetNeighborFaceInfo(int32 FaceIndex)
@@ -618,20 +592,39 @@ void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, ui
 		TriangleColor = FColor(Gray, Gray, Gray, 255);
 	}
 
-	// 获取顶点的UV坐标
-	auto GetVertexUV = [FaceIndex](int32 VertexIndex) -> FIntVector2
-		{
-			if (VertexIndex < 0 || VertexIndex >= 8 || FaceIndex < 0 || FaceIndex >= 6)
-				return FIntVector2::ZeroValue;
-			return BaseCubeUVs[VertexIndex][FaceIndex];
-		};
+	uint32 UVFaceIndex = FaceIndex < 6 ? RelativeFaceIndex : BlockShapeGenerator->AllBlockFaceDirectionsReverse[BlockType][DirectionIndex][4];
+	const FaceIndices& UVFaceDef = FaceIndex < 6 
+		? BlockShapeGenerator->AllBlockFaces[BlockType][DirectionIndex][UVFaceIndex]
+		: BlockShapeGenerator->AllBlockFaces[UCVoxelBlockType_Cube][0][UVFaceIndex];
+
+	if (BlockType != UCVoxelBlockType_Cube)
+		uint32 a = 0;
 
 	FIntVector V0 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[0])) * 2;
 	FIntVector V1 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[1])) * 2;
 	FIntVector V2 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[2])) * 2;
-	FIntVector2 UV0 = GetVertexUV(FaceDef.Indices[0]) * 2;
-	FIntVector2 UV1 = GetVertexUV(FaceDef.Indices[1]) * 2;
-	FIntVector2 UV2 = GetVertexUV(FaceDef.Indices[2]) * 2;
+
+	FIntVector Dis0 = V1 - V0;
+	FIntVector Dis1 = V2 - V0;
+
+// 	FIntVector2 UV0 = BaseCubeUVs[UVFaceDef.Indices[0]][UVFaceIndex] * 2;
+// 	FIntVector2 UV1 = BaseCubeUVs[UVFaceDef.Indices[1]][UVFaceIndex] * 2;
+// 	FIntVector2 UV2 = BaseCubeUVs[UVFaceDef.Indices[2]][UVFaceIndex] * 2;
+	int32 OffX = 0;
+	int32 OffY = 1;
+	if (Dis0.Y == 0 && Dis1.Y == 0)
+	{
+		OffX = 0;
+		OffY = 2;
+	}
+	if (Dis0.X == 0 && Dis1.X == 0)
+	{
+		OffX = 1;
+		OffY = 2;
+	}
+	FIntVector2 UV0(0, 0);
+	FIntVector2 UV1(Dis0[OffX], Dis0[OffY]);
+	FIntVector2 UV2(Dis1[OffX], Dis1[OffY]);
 
 	// 计算法向量
 	if (FaceIndex < 6)
@@ -659,7 +652,9 @@ void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, ui
 		if (FaceDef.Count >= 4)
 		{
 			FIntVector V3 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[3])) * 2;
-			FIntVector2 UV3 = GetVertexUV(FaceDef.Indices[3]) * 2;
+			FIntVector Dis2 = V3 - V0;
+			FIntVector2 UV3(Dis2[OffX], Dis2[OffY]);
+// 			FIntVector2 UV3 = BaseCubeUVs[UVFaceDef.Indices[3]][UVFaceIndex] * 2;
 
 			OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
 			OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
@@ -672,36 +667,25 @@ void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, ui
 	}
 	else
 	{
-		// AO模式：计算中心点和中心UV
-		FIntVector Center(0, 0, 0);
-		FIntVector2 CenterUV(0, 0);
-		int32 NumPointsForCenter = 0;
-		for (int32 i = 0; i < 4; ++i)
-		{
-			int32 VertexIndex = FaceDef.Indices[i];
-			if (VertexIndex == -1)
-				break;
-			Center += LocalToWorldPosition(ConvertVertexIndexToGridPos(VertexIndex)) * 2;
-			CenterUV += GetVertexUV(VertexIndex) * 2;
-			NumPointsForCenter++;
-		}
-		if (NumPointsForCenter > 0)
-		{
-			Center /= NumPointsForCenter;
-			CenterUV /= NumPointsForCenter;
-		}
-
 		if (FaceDef.Count == 3)
 		{
 			if (FaceIndex < 6)
 			{
+				FIntVector V3 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[3])) * 2;
+				FIntVector Dis2 = V3 - V0;
+				FIntVector2 UV3(Dis2[OffX], Dis2[OffY]);
+//				FIntVector2 UV3 = BaseCubeUVs[UVFaceDef.Indices[3]][UVFaceIndex] * 2;
+
+				FIntVector Center = (V0 + V1 + V2 + V3) / 4;
+				FIntVector2 CenterUV = (UV0 + UV1 + UV2 + UV3) / 4;
+
 				OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
 				OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
 				OutVertices.Add(FIntVertex(V2, UV2, TriangleColor));
 				OutVertices.Add(FIntVertex(Center, CenterUV, TriangleColor));
 
 				OutFaceIndexes.Add(FIntVector(0, 3, 1));
-				OutFaceIndexes.Add(FIntVector(0, 2, 3));
+				OutFaceIndexes.Add(FIntVector(2, 3, 0));
 			}
 			else
 			{
@@ -716,7 +700,12 @@ void AVoxelTile::GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, ui
 		{
 			// 四边形拆解成4个三角形（带中心点）
 			FIntVector V3 = LocalToWorldPosition(ConvertVertexIndexToGridPos(FaceDef.Indices[3])) * 2;
-			FIntVector2 UV3 = GetVertexUV(FaceDef.Indices[3]) * 2;
+			FIntVector Dis2 = V3 - V0;
+			FIntVector2 UV3(Dis2[OffX], Dis2[OffY]);
+// 			FIntVector2 UV3 = BaseCubeUVs[UVFaceDef.Indices[3]][UVFaceIndex] * 2;
+
+			FIntVector Center = (V0 + V1 + V2 + V3) / 4;
+			FIntVector2 CenterUV = (UV0 + UV1 + UV2 + UV3) / 4;
 
 			OutVertices.Add(FIntVertex(V0, UV0, TriangleColor));
 			OutVertices.Add(FIntVertex(V1, UV1, TriangleColor));
@@ -932,13 +921,48 @@ void AVoxelTile::BuildMeshData()
 
 					int32 BaseIndex = Vertices.Num();
 
+					// 从 AryTextureID 获取面的纹理ID（使用面的中心点或第一个顶点）
+					int32 TextureID = 0;
+					if (TileData && TileData->AryTextureID.GetSize() > 0 && FaceVertices.Num() > 0)
+					{
+						// 获取第一个顶点的世界坐标（已乘以2）
+						FIntVector VertexWorldPos = FaceVertices[0].V;
+						// 转换为局部坐标（相对于Tile，范围0-32, 0-32, 0-64）
+						// V0, V1, V2 已经是世界坐标（乘以2），需要转换回局部坐标
+						// LocalToWorldPosition 返回的是世界网格坐标，需要反向转换
+						// 简化：使用体素中心点 (X, Y, Z) 对应的 UV 坐标
+						// AryTextureID 的索引：UVIndex = (Z+1) * (TileSizeY+1) * (TileSizeX+1) + (Y+1) * (TileSizeX+1) + (X+1)
+						const int32 UVSizeX = VOXEL_TILE_SIZE_X + 1;  // 33
+						const int32 UVSizeY = VOXEL_TILE_SIZE_Y + 1;  // 33
+						const int32 UVSizeZ = VOXEL_TILE_SIZE_Z + 1;  // 65
+						
+						// 使用体素坐标 (X, Y, Z) 获取对应的 TextureID
+						// 注意：AryTextureID 的坐标范围是 0-33, 0-33, 0-65（比体素大1）
+						// 对于体素 (X, Y, Z)，对应的 UV 坐标是 (X+1, Y+1, Z+1)
+						int32 UVIndex = (Z + 1) * UVSizeY * UVSizeX + (Y + 1) * UVSizeX + (X + 1);
+						if (UVIndex >= 0 && UVIndex < TileData->AryTextureID.GetSize())
+						{
+							UCPoint TextureIDPoint = TileData->AryTextureID[UVIndex];
+							TextureID = TextureIDPoint.x; // 使用 x 作为 TextureID
+						}
+					}
+
 					for (ucINT i = 0; i < FaceVertices.Num(); i++)
 					{
 						FVector Location(FaceVertices[i].V);
 						Vertices.Add(Location / 2.0f * VoxelSize - TileWorldGridPos);
 						FVector2D UV(FaceVertices[i].UV);
 						UVs.Add(UV / 2.0f);
-						VertexColors.Add(FaceVertices[i].Color);
+						
+						// 如果从 AryTextureID 获取到了 TextureID，使用它来设置顶点颜色或材质
+						// 这里先保持原有的颜色逻辑，后续可以通过材质参数传递 TextureID
+						FColor VertexColor = FaceVertices[i].Color;
+						if (TextureID > 0 && Terrain)
+						{
+							// 可以通过顶点颜色传递 TextureID 信息，或者使用材质参数
+							// 这里先保持原有逻辑，后续可以扩展
+						}
+						VertexColors.Add(VertexColor);
 
 						Normals.Add(FaceNormal);
 						Tangents.Add(FProcMeshTangent(0, 0, 1));
@@ -1115,6 +1139,10 @@ bool AVoxelTile::DoFacesOverlap(int32 X, int32 Y, int32 Z, int32 FaceIndex, int3
 
 void AVoxelTile::UpdateMesh(bool Active)
 {
+	// 如果已经有待处理的刷新请求，忽略本次请求
+	if (bMeshUpdatePending)
+		return;
+
 	ClearMeshData();
 	if (!Active)
 	{
@@ -1122,9 +1150,38 @@ void AVoxelTile::UpdateMesh(bool Active)
 		return;
 	}
 
+	// 标记有待处理的刷新
+	bMeshUpdatePending = true;
 	// 构建网格数据
 	BuildMeshData();
+	
+	// 清除现有的定时器（如果存在）
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(MeshUpdateTimerHandle);
+		
+		// 设置1秒延迟刷新
+		World->GetTimerManager().SetTimer(
+			MeshUpdateTimerHandle,
+			this,
+			&AVoxelTile::ExecuteMeshUpdate,
+			0.05f, // 1秒延迟
+			false // 不循环
+		);
+	}
+	else
+	{
+		// 如果World不存在，直接执行（不应该发生，但作为fallback）
+		ExecuteMeshUpdate();
+	}
+}
 
+void AVoxelTile::ExecuteMeshUpdate()
+{
+	// 清除待处理标志，允许新的刷新请求
+	bMeshUpdatePending = false;
+	
 	// 更新程序化网格组件
 	ProceduralMesh->CreateMeshSection(
 		0,
@@ -1140,7 +1197,73 @@ void AVoxelTile::UpdateMesh(bool Active)
 	// 设置材质
 	if (Material)
 	{
-		ProceduralMesh->SetMaterial(0, Material);
+		// 创建 Material Instance Dynamic（如果还没有创建）
+		if (!MaterialInstanceDynamic)
+		{
+			MaterialInstanceDynamic = UMaterialInstanceDynamic::Create(Material, this);
+			UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Created Material Instance Dynamic"));
+		}
+		
+		// 如果有纹理列表，设置默认纹理（第一个纹理）
+		if (Terrain)
+		{
+			TArray<UTexture2D*> TextureList = Terrain->GetTextureList();
+			UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Terrain has %d textures"), TextureList.Num());
+			
+			if (TextureList.Num() > 0)
+			{
+				UTexture2D* DefaultTexture = TextureList[0];
+				if (DefaultTexture)
+				{
+					// 设置纹理参数（参数名需要在材质中定义，例如 "Texture" 或 "BaseTexture"）
+					// 注意：这里的参数名需要与材质中的 Texture Parameter 名称匹配
+					MaterialInstanceDynamic->SetTextureParameterValue(FName(TEXT("Texture")), DefaultTexture);
+					UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Set texture parameter 'Texture' (Size: %dx%d)"), 
+						DefaultTexture->GetSizeX(), DefaultTexture->GetSizeY());
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("AVoxelTile::ExecuteMeshUpdate: DefaultTexture is null"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("AVoxelTile::ExecuteMeshUpdate: TextureList is empty"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AVoxelTile::ExecuteMeshUpdate: Terrain is null"));
+		}
+		
+		ProceduralMesh->SetMaterial(0, MaterialInstanceDynamic);
+		UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Material applied to ProceduralMesh"));
+	}
+	else
+	{
+		ProceduralMesh->SetMaterial(0, nullptr);
+	}
+}
+
+void AVoxelTile::SetTextureToMaterial(int32 TextureID, UTexture2D* Texture)
+{
+	if (!Material || !Texture)
+		return;
+
+	// 创建或获取 Material Instance Dynamic
+	if (!MaterialInstanceDynamic)
+	{
+		MaterialInstanceDynamic = UMaterialInstanceDynamic::Create(Material, this);
+	}
+
+	// 设置纹理参数（参数名需要在材质中定义）
+	// 注意：这里的参数名需要与材质中的 Texture Parameter 名称匹配
+	MaterialInstanceDynamic->SetTextureParameterValue(FName(TEXT("Texture")), Texture);
+	
+	// 如果材质已经应用到网格，更新它
+	if (ProceduralMesh && ProceduralMesh->GetMaterial(0) != MaterialInstanceDynamic)
+	{
+		ProceduralMesh->SetMaterial(0, MaterialInstanceDynamic);
 	}
 }
 

@@ -53,6 +53,9 @@ private:
 	/** Edit tool widget */
 	mutable TSharedPtr<SWidget> EditToolWidget;
 
+	/** Widget switcher for tool content */
+	mutable TSharedPtr<SWidgetSwitcher> ToolContentSwitcher;
+
 	/** Current map dimensions */
 	mutable int32 CurrentMapWidth;
 	mutable int32 CurrentMapHeight;
@@ -63,7 +66,7 @@ private:
 
 	/** Block type combo box options and selected index */
 	mutable TSharedPtr<TArray<TSharedPtr<FString>>> BlockTypeOptions;
-	mutable int32 SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
+	mutable int32 SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PAINT_TEXTURE;
 	mutable TSharedPtr<class SComboBox<TSharedPtr<FString>>> BlockTypeComboBox;
 
 	/** Owning editor mode */
@@ -89,4 +92,13 @@ private:
 
 	/** Clear the current tile (the tile containing the edit volume) */
 	void ClearCurrentTile() const;
+
+	/** Add a texture to the texture list */
+	void AddTexture(const FString& TexturePath) const;
+
+	/** Remove a texture from the texture list */
+	void RemoveTexture(int32 Index) const;
+
+	/** Build texture list widget */
+	TSharedPtr<SWidget> BuildTextureListWidget() const;
 };

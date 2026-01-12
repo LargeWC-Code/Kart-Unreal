@@ -141,6 +141,28 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VoxelTerrain")
 	UMaterialInterface* Material;
 
+	/**
+	 * 设置纹理列表（从 MapManager 的 TextureConfig 加载）
+	 * @param TexturePaths 纹理路径列表
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
+	void SetTextureList(const TArray<FString>& TexturePaths);
+
+	/**
+	 * 获取纹理列表
+	 * @return 纹理列表（UTexture2D* 数组）
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
+	TArray<UTexture2D*> GetTextureList() const { return TextureList; }
+
+	/**
+	 * 根据 TextureID 获取对应的纹理
+	 * @param TextureID 纹理ID（从 AryTextureID 获取）
+	 * @return 对应的纹理，如果ID无效则返回nullptr
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
+	UTexture2D* GetTextureByID(int32 TextureID) const;
+
 private:
 	// ========== 内部方法 ==========
 
@@ -162,5 +184,9 @@ private:
 
 	/** 激活的地块集合 */
 	TSet<FIntPoint> ActiveTiles;
+
+	/** 纹理列表（从 MapManager 的 TextureConfig 加载） */
+	UPROPERTY()
+	TArray<TObjectPtr<UTexture2D>> TextureList;
 };
 

@@ -65,7 +65,19 @@ public:
 	 * @return 世界网格坐标（FIntVector，整数坐标）
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
-	FIntVector LocalToWorldPosition(const FIntVector& LocalGridPosition) const;
+	inline FIntVector LocalToWorldPosition(const FIntVector& LocalGridPosition) const
+	{
+		static const int32 HalfTileSizeX = VOXEL_TILE_SIZE_X / 2; // 16
+		static const int32 HalfTileSizeY = VOXEL_TILE_SIZE_Y / 2; // 16
+		static const int32 HalfTileSizeZ = VOXEL_TILE_SIZE_Z / 2; // 32
+
+		// 计算体素的世界网格坐标（Tile世界网格位置 + 局部偏移）
+		return FIntVector(
+			TileCoord.Y * VOXEL_TILE_SIZE_X + LocalGridPosition.X - HalfTileSizeX,
+			TileCoord.X * VOXEL_TILE_SIZE_Y + LocalGridPosition.Y - HalfTileSizeY,
+			LocalGridPosition.Z - HalfTileSizeZ
+		);
+	}
 
 	/**
 	 * 对三个顶点进行排序（按 Z、X、Y 顺序）
@@ -92,6 +104,7 @@ public:
 
 	/**
 	 * 更新网格渲染（重建所有可见面）
+	 * 注意：此函数使用节流机制，1秒内只能激活一次
 	 */
 	void UpdateMesh(bool Active);
 
@@ -136,6 +149,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VoxelTile")
 	UMaterialInterface* Material;
 
+	/** 设置 Terrain 引用（用于获取纹理列表） */
+	void SetTerrain(class UVoxelTerrain* InTerrain) { Terrain = InTerrain; }
+
+	/**
+	 * 设置纹理到材质（使用 Material Instance Dynamic）
+	 * @param TextureID 纹理ID（从 AryTextureID 获取）
+	 * @param Texture 要设置的纹理
+	 */
+	void SetTextureToMaterial(int32 TextureID, UTexture2D* Texture);
+
 private:
 	// ========== 内部方法 ==========
 
@@ -160,6 +183,10 @@ private:
 	
 	/** 检查当前体素的面与相邻体素的面是否重叠（用于斜面和三角斜面） */
 	bool DoFacesOverlap(int32 X, int32 Y, int32 Z, int32 FaceIndex, int32 AdjX, int32 AdjY, int32 AdjZ) const;
+
+	/** 实际执行网格更新的函数（由定时器调用） */
+	void ExecuteMeshUpdate();
+
 private:
 	// ========== 组件 ==========
 	
@@ -172,6 +199,14 @@ private:
 	/** 体素数据数组（线性存储：Index = Z * SizeY * SizeX + Y * SizeX + X） */
 	UCVoxelTileData*	TileData;
 
+	/** Terrain 引用（用于获取纹理列表） */
+	UPROPERTY()
+	TObjectPtr<class UVoxelTerrain> Terrain;
+
+	/** Material Instance Dynamic（用于运行时设置纹理） */
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> MaterialInstanceDynamic;
+
 	/** 网格重建时使用的临时数据 */
 	TArray<FVector> Vertices;
 	TArray<int32> Triangles;
@@ -179,5 +214,13 @@ private:
 	TArray<FVector2D> UVs;
 	TArray<FColor> VertexColors;
 	TArray<FProcMeshTangent> Tangents;
+
+	// ========== 网格更新节流 ==========
+	
+	/** 是否已请求刷新（激活标志） */
+	bool bMeshUpdatePending;
+		
+	/** 定时器句柄（用于延迟刷新） */
+	FTimerHandle MeshUpdateTimerHandle;
 };
 

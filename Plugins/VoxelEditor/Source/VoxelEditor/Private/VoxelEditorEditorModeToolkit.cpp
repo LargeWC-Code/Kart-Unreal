@@ -31,6 +31,18 @@
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "EditorModeManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Engine/Texture2D.h"
+#include "ImageUtils.h"
+#include "Slate/SlateBrushAsset.h"
+#include "Styling/SlateBrush.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFile.h"
+#include "DesktopPlatformModule.h"
+#include "IDesktopPlatform.h"
+#include "Widgets/Layout/SWrapBox.h"
 
 #define LOCTEXT_NAMESPACE "VoxelEditorEditorModeToolkit"
 
@@ -41,7 +53,7 @@ FVoxelEditorEditorModeToolkit::FVoxelEditorEditorModeToolkit()
 	CurrentMapHeight = 0;
 	bMapLoaded = false;
 	EditToolButtonStates.Empty();
-	SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_SELECT;
+	SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PAINT_TEXTURE;
 }
 
 void FVoxelEditorEditorModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost, TWeakObjectPtr<UEdMode> InOwningMode)
@@ -143,7 +155,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetInlineContent() const
 TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::CreateToolContentWidget() const
 {
 	// 创建一个包含 WidgetSwitcher 的 Widget，根据工具状态动态切换
-	return SNew(SWidgetSwitcher)
+	ToolContentSwitcher = SNew(SWidgetSwitcher)
 		.WidgetIndex_Lambda([this]() { return GetActiveToolIndex(); })
 		
 		// Maps Tool Widget (索引 0)
@@ -157,6 +169,8 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::CreateToolContentWidget() con
 		[
 			GetEditToolWidget().ToSharedRef()
 		];
+	
+	return ToolContentSwitcher;
 }
 
 int32 FVoxelEditorEditorModeToolkit::GetActiveToolIndex() const
@@ -534,6 +548,168 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 						]
 				]
 			]
+			
+			// 纹理列表区域
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0, 10, 0, 0)
+			[
+				SNew(SBorder)
+				.Padding(5.0f)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				[
+					SNew(SVerticalBox)
+					
+					// 标题和涂抹纹理按钮
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0, 0, 0, 5)
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("TextureListTitle", "纹理列表"))
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 12))
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(5, 0, 0, 0)
+						[
+							SNew(SBox)
+							.MinDesiredWidth(80.0f)
+							.MinDesiredHeight(30.0f)
+							[
+								SNew(SOverlay)
+								// 背景颜色层
+								+ SOverlay::Slot()
+								.HAlign(HAlign_Fill)
+								.VAlign(VAlign_Fill)
+								[
+									SNew(SColorBlock)
+									.Color(MakeAttributeLambda([this]()
+									{
+										return SelectedBlockTypeIndex == VOXEL_BLOCK_TYPE_PAINT_TEXTURE ? 
+											FLinearColor(0.2f, 0.5f, 0.8f, 1.0f) :  // 选中：蓝色背景
+											FLinearColor(0.15f, 0.15f, 0.15f, 1.0f); // 未选中：深灰背景
+									}))
+								]
+								// 按钮层 - 填充整个区域以扩大点击区域
+								+ SOverlay::Slot()
+								.HAlign(HAlign_Fill)
+								.VAlign(VAlign_Fill)
+								[
+									SNew(SButton)
+									.Text(NSLOCTEXT("VoxelEditor", "PaintTexture", "涂抹纹理"))
+									.ButtonStyle(FAppStyle::Get(), "NoBorder")
+									.HAlign(HAlign_Center)
+									.VAlign(VAlign_Center)
+									.ContentPadding(FMargin(5.0f))
+									.OnClicked_Lambda([this]()
+									{
+										SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PAINT_TEXTURE;
+										UE_LOG(LogTemp, Log, TEXT("Block type selected: Paint Texture (index: %d)"), SelectedBlockTypeIndex);
+										// 刷新EditToolWidget和MainContentWidget以更新按钮状态
+										EditToolWidget.Reset();
+										MainContentWidget.Reset();
+										return FReply::Handled();
+									})
+								]
+							]
+						]
+					]
+					
+					// 添加按钮
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0, 0, 0, 5)
+					[
+						SNew(SButton)
+						.Text(LOCTEXT("AddTexture", "添加纹理"))
+						.OnClicked_Lambda([this]()
+						{
+							if (VoxelWorldEditorInstance.IsValid())
+							{
+								AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+								if (WorldEditor)
+								{
+									IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+									if (DesktopPlatform)
+									{
+										TArray<FString> OutFiles;
+										const FString Title = TEXT("选择纹理图片");
+										const FString DefaultPath = AVoxelWorldEditor::GetVoxelWorldDirectory();
+										const FString FileTypes = TEXT("Image Files (*.tga, *.png, *.jpg, *.jpeg)|*.tga;*.png;*.jpg;*.jpeg|All Files (*.*)|*.*");
+										
+										if (DesktopPlatform->OpenFileDialog(
+											FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
+											Title,
+											DefaultPath,
+											TEXT(""),
+											FileTypes,
+											EFileDialogFlags::None,
+											OutFiles
+										))
+										{
+											if (OutFiles.Num() > 0)
+											{
+												FString SelectedFile = OutFiles[0];
+												FString VoxelWorldDir = AVoxelWorldEditor::GetVoxelWorldDirectory();
+												
+												// 计算相对路径
+												FString ResourceDir = VoxelWorldDir / TEXT("Resource");
+												FString RelativePath;
+												
+												// 尝试将路径转换为相对于 Resource 目录的路径
+												if (FPaths::MakePathRelativeTo(SelectedFile, *ResourceDir))
+												{
+													RelativePath = SelectedFile;
+												}
+												else
+												{
+													// 如果不在资源目录内，复制到资源目录的 Textures 子目录
+													FString FileName = FPaths::GetCleanFilename(SelectedFile);
+													FString TargetPath = ResourceDir / TEXT("Textures") / FileName;
+													
+													// 确保 Textures 目录存在
+													IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+													FString TexturesDir = ResourceDir / TEXT("Textures");
+													if (!PlatformFile.DirectoryExists(*TexturesDir))
+													{
+														PlatformFile.CreateDirectoryTree(*TexturesDir);
+													}
+													
+													if (IFileManager::Get().Copy(*TargetPath, *SelectedFile, true, true))
+													{
+														RelativePath = TEXT("Textures") / FileName;
+													}
+													else
+													{
+														RelativePath = FileName;
+													}
+												}
+												
+												AddTexture(RelativePath);
+												// AddTexture 内部已经处理了刷新
+											}
+										}
+									}
+								}
+							}
+							return FReply::Handled();
+						})
+					]
+					
+					// 纹理列表
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						BuildTextureListWidget().ToSharedRef()
+					]
+				]
+			]
 		];
 	
 	// 默认显示空状态（没有加载地图）
@@ -682,8 +858,8 @@ void FVoxelEditorEditorModeToolkit::UpdateEditToolGridFromMap(int32 MapWidth, in
 													// Tile中心位置：根据之前的代码修改，Tile (0,0)的中心在(0, 0, 0)
 													// X和Y方向：从-16*100到+16*100，中心在0
 													// Z方向：从0到64*100，中心在32*100=3200
-													float TileCenterX = X * TileWorldSize;
-													float TileCenterY = Y * TileWorldSize;
+													float TileCenterX = Y * TileWorldSize;
+													float TileCenterY = X * TileWorldSize;
 													float TileCenterZ = (TileSizeZ * VoxelSize) * 0.5f; // 32 * 100 = 3200
 													
 													// 设置Volume位置为Tile中心
@@ -1047,6 +1223,229 @@ FText FVoxelEditorEditorModeToolkit::GetBaseToolkitName() const
 int32 FVoxelEditorEditorModeToolkit::GetSelectedBlockType() const
 {
 	return SelectedBlockTypeIndex;
+}
+
+void FVoxelEditorEditorModeToolkit::AddTexture(const FString& TexturePath) const
+{
+	if (!VoxelWorldEditorInstance.IsValid())
+	{
+		return;
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+	if (!WorldEditor)
+	{
+		return;
+	}
+
+	UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+	UCString UCTexturePath = WorldEditor->FStringToUCString(TexturePath);
+	
+	// 添加到纹理列表
+	MapManager.TextureConfig.AryTexturePaths.Add(UCTexturePath);
+	
+	// 保存配置
+	FString VoxelWorldDir = AVoxelWorldEditor::GetVoxelWorldDirectory();
+	UCString UCVoxelWorldDir = WorldEditor->FStringToUCString(VoxelWorldDir);
+	MapManager.SaveResources(UCVoxelWorldDir);
+	
+	UE_LOG(LogTemp, Log, TEXT("Added texture: %s"), *TexturePath);
+	
+	// 强制刷新UI - 重置Widget以便下次调用时重新创建
+	EditToolWidget.Reset();
+	MainContentWidget.Reset();
+	ToolContentSwitcher.Reset();
+	
+	// 如果当前正在显示编辑工具，立即重新创建Widget
+	if (GetActiveToolIndex() == 1) // Edit Tool
+	{
+		MainContentWidget = CreateToolContentWidget();
+		// 强制刷新 WidgetSwitcher
+		if (ToolContentSwitcher.IsValid())
+		{
+			ToolContentSwitcher->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
+		// 强制刷新整个工具包内容
+		if (ToolkitWidget.IsValid())
+		{
+			ToolkitWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
+	}
+}
+
+void FVoxelEditorEditorModeToolkit::RemoveTexture(int32 Index) const
+{
+	if (!VoxelWorldEditorInstance.IsValid())
+	{
+		return;
+	}
+
+	AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+	if (!WorldEditor)
+	{
+		return;
+	}
+
+	UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+	
+	if (Index >= 0 && Index < MapManager.TextureConfig.AryTexturePaths.GetSize())
+	{
+		MapManager.TextureConfig.AryTexturePaths.RemoveAt(Index);
+		
+		// 保存配置
+		FString VoxelWorldDir = AVoxelWorldEditor::GetVoxelWorldDirectory();
+		UCString UCVoxelWorldDir = WorldEditor->FStringToUCString(VoxelWorldDir);
+		MapManager.SaveResources(UCVoxelWorldDir);
+		
+		UE_LOG(LogTemp, Log, TEXT("Removed texture at index: %d"), Index);
+		
+		// 强制刷新UI - 重置Widget以便下次调用时重新创建
+		EditToolWidget.Reset();
+		MainContentWidget.Reset();
+		ToolContentSwitcher.Reset();
+		
+		// 如果当前正在显示编辑工具，立即重新创建Widget
+		if (GetActiveToolIndex() == 1) // Edit Tool
+		{
+			MainContentWidget = CreateToolContentWidget();
+			// 强制刷新 WidgetSwitcher
+			if (ToolContentSwitcher.IsValid())
+			{
+				ToolContentSwitcher->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+			}
+			// 强制刷新整个工具包内容
+			if (ToolkitWidget.IsValid())
+			{
+				ToolkitWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+			}
+		}
+	}
+}
+
+TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() const
+{
+	TSharedPtr<SWrapBox> WrapBox = SNew(SWrapBox)
+		.InnerSlotPadding(FVector2D(5.0f, 5.0f));
+
+	if (VoxelWorldEditorInstance.IsValid())
+	{
+		AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
+		if (WorldEditor)
+		{
+			UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+			int32 TextureCount = MapManager.TextureConfig.AryTexturePaths.GetSize();
+			
+			// 为每个纹理创建一个 Widget
+			for (int32 i = 0; i < TextureCount; ++i)
+			{
+				// 创建纹理项 Widget
+				int32 TextureIndex = i; // 捕获索引
+				
+				// 为每个纹理创建画笔（不使用静态缓存，每次都重新加载以确保刷新）
+				const FSlateBrush* Brush = nullptr;
+				
+				// 加载纹理
+				UCString TexturePathUC = MapManager.TextureConfig.AryTexturePaths[TextureIndex];
+				FString TextureRelativePath = WorldEditor->UCStringToFString(TexturePathUC);
+				if (!TextureRelativePath.IsEmpty())
+				{
+					FString VoxelWorldDir = AVoxelWorldEditor::GetVoxelWorldDirectory();
+					FString FullTexturePath = VoxelWorldDir / TextureRelativePath;
+					
+					IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+					if (PlatformFile.FileExists(*FullTexturePath))
+					{
+						TArray<uint8> ImageData;
+						if (FFileHelper::LoadFileToArray(ImageData, *FullTexturePath))
+						{
+							UTexture2D* Texture = FImageUtils::ImportBufferAsTexture2D(ImageData);
+							if (Texture)
+							{
+								// 创建动态画笔
+								TSharedPtr<FSlateBrush> DynamicBrush = MakeShareable(new FSlateBrush());
+								DynamicBrush->SetResourceObject(Texture);
+								DynamicBrush->ImageSize = FVector2D(Texture->GetSizeX(), Texture->GetSizeY());
+								DynamicBrush->DrawAs = ESlateBrushDrawType::Image;
+								DynamicBrush->Tiling = ESlateBrushTileType::NoTile;
+								
+								// 将画笔保存到静态缓存中（使用路径作为键）
+								static TMap<FString, TSharedPtr<FSlateBrush>> TextureBrushCache;
+								TextureBrushCache.Add(FullTexturePath, DynamicBrush);
+								Brush = DynamicBrush.Get();
+							}
+						}
+					}
+				}
+				
+				// 如果没有加载成功，使用默认的灰色画笔
+				if (!Brush)
+				{
+					Brush = FAppStyle::GetBrush("WhiteBrush");
+				}
+				
+				WrapBox->AddSlot()
+					.Padding(5.0f)
+					[
+						SNew(SBorder)
+						.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+						.Padding(5.0f)
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(SBox)
+								.WidthOverride(100.0f)
+								.HeightOverride(100.0f)
+								[
+								SNew(SImage)
+								.Image(Brush)
+								]
+							]
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(0, 5, 0, 0)
+							[
+								SNew(STextBlock)
+								.Text_Lambda([WorldEditor, TextureIndex]()
+								{
+									UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+									if (TextureIndex >= 0 && TextureIndex < MapManager.TextureConfig.AryTexturePaths.GetSize())
+									{
+										UCString TexturePathUC = MapManager.TextureConfig.AryTexturePaths[TextureIndex];
+										FString TexturePath = WorldEditor->UCStringToFString(TexturePathUC);
+										return FText::FromString(FPaths::GetCleanFilename(TexturePath));
+									}
+									return FText::GetEmpty();
+								})
+								.Justification(ETextJustify::Center)
+							]
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(0, 5, 0, 0)
+							[
+								SNew(SButton)
+								.Text(LOCTEXT("DeleteTexture", "删除"))
+								.OnClicked_Lambda([this, TextureIndex]()
+								{
+									RemoveTexture(TextureIndex);
+									// RemoveTexture 内部已经处理了刷新
+									return FReply::Handled();
+								})
+							]
+						]
+					];
+			}
+		}
+	}
+
+	return SNew(SScrollBox)
+		.Orientation(Orient_Vertical)
+		+ SScrollBox::Slot()
+		.Padding(5.0f)
+		[
+			WrapBox.ToSharedRef()
+		];
 }
 
 #undef LOCTEXT_NAMESPACE

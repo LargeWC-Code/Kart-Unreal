@@ -104,6 +104,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VoxelWorld")
 	void GetPrefab(int32 Index, FString& OutName, int32& OutType) const;
 
+	// ========== 字符串转换工具 ==========
+
+	/** 从 UCString 转换为 FString */
+	FString UCStringToFString(const UCString& UCStr) const;
+
+	/** 从 FString 转换为 UCString */
+	UCString FStringToUCString(const FString& FStr) const;
+
 	// ========== 配置属性 ==========
 
 	/** 地图管理器（用于加载/保存地图数据） */
@@ -126,17 +134,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VoxelWorld")
 	float VoxelSize;
 
-private:
+	/** Tile 使用的材质（会传递给所有 Tile） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VoxelWorld")
+	UMaterialInterface* TileMaterial;
+
+protected:
 	// ========== 内部方法 ==========
 
 	/** 初始化地图管理器 */
 	void InitializeMapManager();
-
-	/** 从 UCString 转换为 FString */
-	FString UCStringToFString(const UCString& UCStr) const;
-
-	/** 从 FString 转换为 UCString */
-	UCString FStringToUCString(const FString& FStr) const;
 
 private:
 	// ========== 数据 ==========

@@ -16,11 +16,74 @@ purpose:	VoxelTerrain 实现 - 管理地块的类
 #include "UObject/NameTypes.h"
 #include "Math/UnrealMathUtility.h"
 #include "Math/Plane.h"
+#include "Engine/Texture2D.h"
+#include "ImageUtils.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFile.h"
 
 UVoxelTerrain::UVoxelTerrain()
 	: VoxelSize(100.0f)
 	, Material(nullptr)
 {
+	TextureList.Empty();
+}
+
+void UVoxelTerrain::SetTextureList(const TArray<FString>& TexturePaths)
+{
+	TextureList.Empty();
+	
+	UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: Loading %d textures"), TexturePaths.Num());
+	
+	for (const FString& TexturePath : TexturePaths)
+	{
+		// 构建完整路径（相对于项目目录）
+		FString FullPath = FPaths::ProjectDir() / TEXT("ExternalData/VoxelWorld") / TexturePath;
+		
+		UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: Attempting to load texture from: %s"), *FullPath);
+		
+		// 检查文件是否存在
+		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+		if (PlatformFile.FileExists(*FullPath))
+		{
+			// 加载纹理
+			TArray<uint8> ImageData;
+			if (FFileHelper::LoadFileToArray(ImageData, *FullPath))
+			{
+				UTexture2D* Texture = FImageUtils::ImportBufferAsTexture2D(ImageData);
+				if (Texture)
+				{
+					TextureList.Add(Texture);
+					UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: Successfully loaded texture: %s (Size: %dx%d)"), 
+						*FullPath, Texture->GetSizeX(), Texture->GetSizeY());
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetTextureList: Failed to import texture from: %s"), *FullPath);
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetTextureList: Failed to load file data from: %s"), *FullPath);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("UVoxelTerrain::SetTextureList: Texture file does not exist: %s"), *FullPath);
+		}
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: Total loaded textures: %d"), TextureList.Num());
+}
+
+UTexture2D* UVoxelTerrain::GetTextureByID(int32 TextureID) const
+{
+	if (TextureID > 0 && TextureID <= TextureList.Num())
+	{
+		return TextureList[TextureID - 1]; // TextureID 从1开始，数组从0开始
+	}
+	return nullptr;
 }
 
 AVoxelTile* UVoxelTerrain::GetTile(int32 TileX, int32 TileY, UWorld* World, bool AutoCreate)
@@ -59,6 +122,7 @@ AVoxelTile* UVoxelTerrain::GetTile(int32 TileX, int32 TileY, UWorld* World, bool
 		NewTile->TileCoord = FIntPoint(TileX, TileY);
 		NewTile->VoxelSize = VoxelSize;
 		NewTile->Material = Material;
+		NewTile->SetTerrain(this); // 设置 Terrain 引用
 		
 		// 设置地块位置
 		FVector WorldPos = GetTileWorldPosition(TileY, TileX);

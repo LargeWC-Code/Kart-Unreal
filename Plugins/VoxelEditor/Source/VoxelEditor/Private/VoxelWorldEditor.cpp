@@ -24,6 +24,11 @@ FString AVoxelWorldEditor::GetVoxelWorldMapsDirectory()
 	return FPaths::ProjectDir() / TEXT("ExternalData/VoxelWorld/World");
 }
 
+FString AVoxelWorldEditor::GetVoxelWorldDirectory()
+{
+	return FPaths::ProjectDir() / TEXT("ExternalData/VoxelWorld");
+}
+
 AVoxelWorldEditor::AVoxelWorldEditor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -47,6 +52,16 @@ AVoxelWorldEditor::AVoxelWorldEditor(const FObjectInitializer& ObjectInitializer
 	{
 		MapManager.SaveToFile(UCMapFile);
 	}
+
+	// 加载资源列表
+	FString VoxelWorldDir = GetVoxelWorldDirectory();
+	IPlatformFile& PlatformFile2 = FPlatformFileManager::Get().GetPlatformFile();
+	if (!PlatformFile2.DirectoryExists(*VoxelWorldDir))
+	{
+		PlatformFile2.CreateDirectoryTree(*VoxelWorldDir);
+	}
+	UCString UCVoxelWorldDir = UCString(*VoxelWorldDir);
+	MapManager.LoadResources(UCVoxelWorldDir);
 #endif
 }
 
