@@ -14,6 +14,138 @@ purpose:	VoxelTerrain - 体素地形渲染类，参考UCPixelWorld实现
 // 前向声明
 class AVoxelTile;
 struct UCVoxelMapData;
+
+// War3 纹理结构信息
+USTRUCT(BlueprintType)
+struct VOXELCORE_API FWar3TextureInfo
+{
+	GENERATED_BODY()
+
+	/** 格子总数（16 或 32） */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	int32 TotalCells;
+
+	/** 是否有随机种子格子 */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	bool bHasRandomVariants;
+
+	/** 行数 */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	int32 Rows;
+
+	/** 列数 */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	int32 Columns;
+
+	/** 每个格子的 UV 大小（归一化，0-1） */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	FVector2D CellUVSize;
+
+	/** 纹理宽度 */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	int32 TextureWidth;
+
+	/** 纹理高度 */
+	UPROPERTY(BlueprintReadOnly, Category = "War3Texture")
+	int32 TextureHeight;
+
+	FWar3TextureInfo()
+		: TotalCells(16)
+		, bHasRandomVariants(false)
+		, Rows(4)
+		, Columns(4)
+		, CellUVSize(0.25f, 0.25f)
+		, TextureWidth(0)
+		, TextureHeight(0)
+	{
+	}
+
+	FWar3TextureInfo(int32 InWidth, int32 InHeight)
+		: TextureWidth(InWidth)
+		, TextureHeight(InHeight)
+	{
+		// 根据宽高比自动判断结构
+		if (InWidth > 0 && InHeight > 0)
+		{
+			float AspectRatio = (float)InWidth / (float)InHeight;
+			
+			// 如果横向是纵向的两倍（2:1），表示有随机种子格子，一共32格（8x4）
+			if (FMath::IsNearlyEqual(AspectRatio, 2.0f, 0.1f))
+			{
+				TotalCells = 32;
+				bHasRandomVariants = true;
+				Rows = 4;
+				Columns = 8;
+				CellUVSize = FVector2D(1.0f / 8.0f, 1.0f / 4.0f);
+			}
+			// 如果横竖相等（1:1），就是16格，没有随机种子格子（4x4）
+			else if (FMath::IsNearlyEqual(AspectRatio, 1.0f, 0.1f))
+			{
+				TotalCells = 16;
+				bHasRandomVariants = false;
+				Rows = 4;
+				Columns = 4;
+				CellUVSize = FVector2D(0.25f, 0.25f);
+			}
+			else
+			{
+				// 默认使用16格结构
+				TotalCells = 16;
+				bHasRandomVariants = false;
+				Rows = 4;
+				Columns = 4;
+				CellUVSize = FVector2D(0.25f, 0.25f);
+			}
+		}
+		else
+		{
+			// 默认值
+			TotalCells = 16;
+			bHasRandomVariants = false;
+			Rows = 4;
+			Columns = 4;
+			CellUVSize = FVector2D(0.25f, 0.25f);
+		}
+	}
+
+	/**
+	 * 获取指定格子的 UV 坐标（左上角）
+	 * @param CellIndex 格子索引（0-15 或 0-31）
+	 * @param VariantIndex 随机变体索引（0-1，仅当 bHasRandomVariants=true 时有效）
+	 * @return UV 坐标（归一化，0-1）
+	 */
+	FVector2D GetCellUV(int32 CellIndex, int32 VariantIndex = 0) const
+	{
+		if (CellIndex < 0 || CellIndex >= TotalCells)
+			return FVector2D(0, 0);
+
+		int32 Row = CellIndex / Columns;
+		int32 Col = CellIndex % Columns;
+
+		// 如果有随机变体，需要调整列索引
+		if (bHasRandomVariants && VariantIndex > 0)
+		{
+			// 随机变体在相邻列
+			Col += Columns / 2;
+		}
+
+		return FVector2D(Col * CellUVSize.X, Row * CellUVSize.Y);
+	}
+
+	/**
+	 * 获取指定格子的 UV 范围
+	 * @param CellIndex 格子索引（0-15 或 0-31）
+	 * @param VariantIndex 随机变体索引（0-1，仅当 bHasRandomVariants=true 时有效）
+	 * @param OutMinUV 输出的最小 UV 坐标
+	 * @param OutMaxUV 输出的最大 UV 坐标
+	 */
+	void GetCellUVRange(int32 CellIndex, int32 VariantIndex, FVector2D& OutMinUV, FVector2D& OutMaxUV) const
+	{
+		OutMinUV = GetCellUV(CellIndex, VariantIndex);
+		OutMaxUV = OutMinUV + CellUVSize;
+	}
+};
+
 // 顶点数据结构（用于自定义shader）
 USTRUCT()
 struct VOXELCORE_API FVoxelVertex
@@ -163,6 +295,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
 	UTexture2D* GetTextureByID(int32 TextureID) const;
 
+	/**
+	 * 根据 TextureID 获取对应的 War3 纹理结构信息
+	 * @param TextureID 纹理ID
+	 * @return War3 纹理结构信息
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
+	FWar3TextureInfo GetTextureInfoByID(int32 TextureID) const;
+
+	/**
+	 * 获取纹理结构信息列表
+	 * @return 纹理结构信息列表
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
+	TArray<FWar3TextureInfo> GetTextureInfoList() const { return TextureInfoList; }
+
 private:
 	// ========== 内部方法 ==========
 
@@ -188,5 +335,9 @@ private:
 	/** 纹理列表（从 MapManager 的 TextureConfig 加载） */
 	UPROPERTY()
 	TArray<TObjectPtr<UTexture2D>> TextureList;
+
+	/** 纹理结构信息列表（与 TextureList 一一对应） */
+	UPROPERTY()
+	TArray<FWar3TextureInfo> TextureInfoList;
 };
 

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Toolkits/BaseToolkit.h"
 #include "VoxelEditorEditorMode.h"
 #include "VoxelBlockTypes.h"
@@ -37,6 +38,9 @@ public:
 	/** Get the selected block type */
 	int32 GetSelectedBlockType() const;
 
+	/** Get the selected texture index (-1 means no selection) */
+	int32 GetSelectedTextureIndex() const { return SelectedTextureIndex; }
+
 	/** Apply the edit volume (finds and applies the first available volume) */
 	void ApplyEditVolume() const;
 
@@ -68,6 +72,9 @@ private:
 	mutable TSharedPtr<TArray<TSharedPtr<FString>>> BlockTypeOptions;
 	mutable int32 SelectedBlockTypeIndex = VOXEL_BLOCK_TYPE_PAINT_TEXTURE;
 	mutable TSharedPtr<class SComboBox<TSharedPtr<FString>>> BlockTypeComboBox;
+
+	/** Selected texture index (-1 means no selection) */
+	mutable int32 SelectedTextureIndex = -1;
 
 	/** Owning editor mode */
 	TWeakObjectPtr<UEdMode> OwningMode;
@@ -101,4 +108,7 @@ private:
 
 	/** Build texture list widget */
 	TSharedPtr<SWidget> BuildTextureListWidget() const;
+
+	/** Select a texture by index */
+	void SelectTexture(int32 Index) const;
 };

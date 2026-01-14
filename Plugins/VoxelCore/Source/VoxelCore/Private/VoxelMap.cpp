@@ -24,7 +24,7 @@ SCRIPT_IMPLEMENT_BEGIN(UCE_UCVoxelTileData, UCVoxelTileData)
 	SCRIPT_PROPERTY(UCE_INT, TileX)
 	SCRIPT_PROPERTY(UCE_INT, TileY)
 	SCRIPT_PROPERTY(UCE_UCIntArray, AryVoxels)
-	SCRIPT_PROPERTY(UCE_UCPointArray, AryTextureID)
+	SCRIPT_PROPERTY(UCE_UCIntArray, AryTextureIDs)
 	SCRIPT_DECONSTRUCT();
 SCRIPT_IMPLEMENT_END(UCE_UCVoxelTileData)
 
@@ -84,7 +84,7 @@ UCVoxelTileData::UCVoxelTileData(ucCONST UCVoxelTileData& in)
 	: TileX(in.TileX)
 	, TileY(in.TileY)
 	, AryVoxels(in.AryVoxels)
-	, AryTextureID(in.AryTextureID)
+	, AryTextureIDs(in.AryTextureIDs)
 {
 }
 
@@ -93,7 +93,7 @@ UCVoxelTileData& UCVoxelTileData::operator =(ucCONST UCVoxelTileData& in)
 	TileX = in.TileX;
 	TileY = in.TileY;
 	AryVoxels = in.AryVoxels;
-	AryTextureID = in.AryTextureID;
+	AryTextureIDs = in.AryTextureIDs;
 	return *this;
 }
 
@@ -247,19 +247,16 @@ ucVOID	UCVoxelMapManager::NewCurrentMap(UCSize Size)
 			for (ucINT i = 0; i < TotalVoxels; ++i)
 				TileData.AryVoxels[i] = EmptyVoxel.Data;
 
-			// 初始化 AryTextureID，尺寸比 AryVoxels 的 XYZ 各自大一个单位
+			// 初始化 AryTextureIDs，尺寸比 AryVoxels 的 XYZ 各自大一个单位
 			const ucINT UVSizeX = TileSizeX + 1;  // 33
 			const ucINT UVSizeY = TileSizeY + 1;  // 33
 			const ucINT UVSizeZ = TileSizeZ + 1;  // 65
 			const ucINT TotalUVs = UVSizeX * UVSizeY * UVSizeZ;  // 33 * 33 * 65 = 70785
-			TileData.AryTextureID.SetSize(TotalUVs);
+			TileData.AryTextureIDs.SetSize(TotalUVs);
 
-			// 填充默认 UV 值（0, 0）
-			UCPoint DefaultUV;
-			DefaultUV.x = 0;
-			DefaultUV.y = 0;
+			// 填充默认纹理ID（0表示无纹理）
 			for (ucINT i = 0; i < TotalUVs; ++i)
-				TileData.AryTextureID[i] = DefaultUV;
+				TileData.AryTextureIDs[i] = 0;
 
 			// 添加到地图数据中
 			Curr->_AryTiles.Add(*(_UCEArray::TValue*)&TileData);
@@ -280,7 +277,7 @@ ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
 	if (!Formatter.Load(&File, Curr, &UCE_UCVoxelMapData::I))
 		return ucFALSE;
 
-	// 检查并初始化空的 AryVoxels 和 AryTextureID 数组
+	// 检查并初始化空的 AryVoxels 和 AryTextureIDs 数组
 	const ucINT TileSizeX = VOXEL_TILE_SIZE_X;
 	const ucINT TileSizeY = VOXEL_TILE_SIZE_Y;
 	const ucINT TileSizeZ = VOXEL_TILE_SIZE_Z;
@@ -297,11 +294,6 @@ ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
 	EmptyVoxel.Type = UCVoxelBlockType_Cube;
 	UCVoxelData_SetYawAndRoll(EmptyVoxel, 0, 0);
 
-	// 默认 UV 值
-	UCPoint DefaultUV;
-	DefaultUV.x = 0;
-	DefaultUV.y = 0;
-
 	// 遍历所有 Tile，检查并初始化空数组
 	ucINT TileCount = Curr->_AryTiles.GetSize();
 	for (ucINT i = 0; i < TileCount; ++i)
@@ -316,12 +308,12 @@ ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
 				TileData.AryVoxels[j] = EmptyVoxel.Data;
 		}
 
-		// 如果 AryTextureID 为空，初始化
-		if (TileData.AryTextureID.GetSize() == 0)
+		// 如果 AryTextureIDs 为空，初始化
+		if (TileData.AryTextureIDs.GetSize() == 0)
 		{
-			TileData.AryTextureID.SetSize(TotalUVs);
+			TileData.AryTextureIDs.SetSize(TotalUVs);
 			for (ucINT j = 0; j < TotalUVs; ++j)
-				TileData.AryTextureID[j] = DefaultUV;
+				TileData.AryTextureIDs[j] = 0;
 		}
 	}
 

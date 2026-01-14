@@ -103,6 +103,12 @@ public:
 	void SetTileData(struct UCVoxelTileData* TileDataFromMap)	{	TileData = TileDataFromMap;	}
 
 	/**
+	 * 获取TileData（用于修改纹理信息等）
+	 * @return TileData指针，如果未初始化则返回nullptr
+	 */
+	struct UCVoxelTileData* GetTileData() const { return TileData; }
+
+	/**
 	 * 更新网格渲染（重建所有可见面）
 	 * 注意：此函数使用节流机制，1秒内只能激活一次
 	 */
@@ -159,6 +165,22 @@ public:
 	 */
 	void SetTextureToMaterial(int32 TextureID, UTexture2D* Texture);
 
+	/**
+	 * 根据 TextureID 获取对应的纹理
+	 * @param TextureID 纹理ID
+	 * @return 对应的纹理，如果ID无效或Terrain为null则返回nullptr
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
+	UTexture2D* GetTextureByID(int32 TextureID) const;
+
+	/**
+	 * 根据 TextureID 获取对应的 War3 纹理结构信息
+	 * @param TextureID 纹理ID
+	 * @return War3 纹理结构信息
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VoxelTile")
+	struct FWar3TextureInfo GetTextureInfoByID(int32 TextureID) const;
+
 private:
 	// ========== 内部方法 ==========
 
@@ -181,9 +203,6 @@ private:
 	/** 检查面的四个角是否都有相邻体素在同一高度（可用于合并） */
 	bool IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;
 	
-	/** 检查当前体素的面与相邻体素的面是否重叠（用于斜面和三角斜面） */
-	bool DoFacesOverlap(int32 X, int32 Y, int32 Z, int32 FaceIndex, int32 AdjX, int32 AdjY, int32 AdjZ) const;
-
 	/** 实际执行网格更新的函数（由定时器调用） */
 	void ExecuteMeshUpdate();
 
@@ -207,13 +226,35 @@ private:
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> MaterialInstanceDynamic;
 
-	/** 网格重建时使用的临时数据 */
-	TArray<FVector> Vertices;
-	TArray<int32> Triangles;
-	TArray<FVector> Normals;
-	TArray<FVector2D> UVs;
-	TArray<FColor> VertexColors;
-	TArray<FProcMeshTangent> Tangents;
+	/** 网格重建时使用的临时数据（按TextureID分组） */
+	struct FMeshSectionData
+	{
+		TArray<FVector> Vertices;
+		TArray<int32> Triangles;
+		TArray<FVector> Normals;
+		TArray<FVector2D> UVs0; // UV0 - 第一层
+		TArray<FVector2D> UVs1; // UV1 - 第二层
+		TArray<FVector2D> UVs2; // UV2 - 第三层
+		TArray<FVector2D> UVs3; // UV3 - 第四层
+		TArray<FColor> VertexColors;
+		TArray<FProcMeshTangent> Tangents;
+		
+		void Clear()
+		{
+			Vertices.Empty();
+			Triangles.Empty();
+			Normals.Empty();
+			UVs0.Empty();
+			UVs1.Empty();
+			UVs2.Empty();
+			UVs3.Empty();
+			VertexColors.Empty();
+			Tangents.Empty();
+		}
+	};
+	
+	/** 按TextureID分组的网格数据（key是4个顶点TextureID排序后组合成的int64） */
+	TMap<int64, FMeshSectionData> MeshSections;
 
 	// ========== 网格更新节流 ==========
 	

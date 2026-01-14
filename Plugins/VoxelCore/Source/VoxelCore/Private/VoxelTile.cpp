@@ -731,13 +731,8 @@ void AVoxelTile::SetActive(bool bActive)
 
 void AVoxelTile::ClearMeshData()
 {
-	// 清空之前的网格数据
-	Vertices.Empty();
-	Triangles.Empty();
-	Normals.Empty();
-	UVs.Empty();
-	VertexColors.Empty();
-	Tangents.Empty();
+	// 清空之前的网格数据（按TextureID分组）
+	MeshSections.Empty();
 }
 
 bool AVoxelTile::IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const
@@ -826,8 +821,12 @@ bool AVoxelTile::IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const
 
 void AVoxelTile::BuildMeshData()
 {
-	FVector TileWorldGridPos(TileCoord.Y * VOXEL_TILE_SIZE_X * VoxelSize, TileCoord.X * VOXEL_TILE_SIZE_Y * VoxelSize, 0);
+	const int32 UVSizeX = VOXEL_TILE_SIZE_X + 1;  // 33
+	const int32 UVSizeY = VOXEL_TILE_SIZE_Y + 1;  // 33
+	const int32 UVSizeZ = VOXEL_TILE_SIZE_Z + 1;  // 65
+	FIntVector HalfSize(VOXEL_TILE_SIZE_X / 2, VOXEL_TILE_SIZE_Y / 2, VOXEL_TILE_SIZE_Z / 2);
 
+	FVector TileWorldGridPos(TileCoord.Y * VOXEL_TILE_SIZE_X * VoxelSize, TileCoord.X * VOXEL_TILE_SIZE_Y * VoxelSize, 0);
 	FVoxelBlockShapeGenerator* BlockShapeGenerator = GetBlockShapeGenerator();
 	// 遍历所有体素，为每个可见面生成几何体
 	for (int32 Z = 0; Z < VOXEL_TILE_SIZE_Z; ++Z)
@@ -849,7 +848,6 @@ void AVoxelTile::BuildMeshData()
 					DirectionIndex = UCVoxelData_GetSlopeDirectionIndex(Voxel);
 				else if (BlockType == UCVoxelBlockType_TriangularSlope || BlockType == UCVoxelBlockType_TriangularComplement)
 					DirectionIndex = UCVoxelData_GetTriSlopeDirectionIndex(Voxel);
-
 				
 				// 遍历所有面（Box有6个面，其他有7个面）
 				int32 MaxFaceIndex = (BlockType == UCVoxelBlockType_Cube) ? 6 : 7;
@@ -919,223 +917,122 @@ void AVoxelTile::BuildMeshData()
 					if (TrianglesToRender.Num() == 0)
 						continue;
 
-					int32 BaseIndex = Vertices.Num();
-
-					// 从 AryTextureID 获取面的纹理ID（使用面的中心点或第一个顶点）
-					int32 TextureID = 0;
-					if (TileData && TileData->AryTextureID.GetSize() > 0 && FaceVertices.Num() > 0)
+					UCSimpleMap<ucINT, ucINT> MapTextureIDs;
+					// 计算该面的TextureID key（使用4个顶点的TextureID，排序后组合成int64）
+					int64 TextureKey = 0;
+					if (FaceVertices.Num() > 0 && TileData && TileData->AryTextureIDs.GetSize() > 0)
 					{
-						// 获取第一个顶点的世界坐标（已乘以2）
-						FIntVector VertexWorldPos = FaceVertices[0].V;
-						// 转换为局部坐标（相对于Tile，范围0-32, 0-32, 0-64）
-						// V0, V1, V2 已经是世界坐标（乘以2），需要转换回局部坐标
-						// LocalToWorldPosition 返回的是世界网格坐标，需要反向转换
-						// 简化：使用体素中心点 (X, Y, Z) 对应的 UV 坐标
-						// AryTextureID 的索引：UVIndex = (Z+1) * (TileSizeY+1) * (TileSizeX+1) + (Y+1) * (TileSizeX+1) + (X+1)
-						const int32 UVSizeX = VOXEL_TILE_SIZE_X + 1;  // 33
-						const int32 UVSizeY = VOXEL_TILE_SIZE_Y + 1;  // 33
-						const int32 UVSizeZ = VOXEL_TILE_SIZE_Z + 1;  // 65
-						
-						// 使用体素坐标 (X, Y, Z) 获取对应的 TextureID
-						// 注意：AryTextureID 的坐标范围是 0-33, 0-33, 0-65（比体素大1）
-						// 对于体素 (X, Y, Z)，对应的 UV 坐标是 (X+1, Y+1, Z+1)
-						int32 UVIndex = (Z + 1) * UVSizeY * UVSizeX + (Y + 1) * UVSizeX + (X + 1);
-						if (UVIndex >= 0 && UVIndex < TileData->AryTextureID.GetSize())
+						for (int32 VertexIdx = 0; VertexIdx < FaceVertices.Num(); ++VertexIdx)
 						{
-							UCPoint TextureIDPoint = TileData->AryTextureID[UVIndex];
-							TextureID = TextureIDPoint.x; // 使用 x 作为 TextureID
+							FIntVector VertexWorldPos = FaceVertices[VertexIdx].V;
+							FIntVector VertexPos = VertexWorldPos / 2 + HalfSize;
+							int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
+							
+							if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
+							{
+								// 读取顶点的TextureID（0表示无纹理，1表示第一个纹理）
+								int32 TextureID = TileData->AryTextureIDs[UVIndex];
+								MapTextureIDs.Add(TextureID, TextureID);
+							}
+						}
+
+						for (int32 i = 0; i < MapTextureIDs.GetSize(); i++)
+						{
+							int32 TextureID = MapTextureIDs.GetValueAt(i);
+
+							TextureKey |= (TextureID << (16 * i));
 						}
 					}
-
+					
+					// 获取或创建对应的MeshSection
+					FMeshSectionData& SectionData = MeshSections.FindOrAdd(TextureKey);
+					
+					int32 RandBlockID = randint(16, 31);
+					int32 BaseIndex = SectionData.Vertices.Num();
 					for (ucINT i = 0; i < FaceVertices.Num(); i++)
 					{
-						FVector Location(FaceVertices[i].V);
-						Vertices.Add(Location / 2.0f * VoxelSize - TileWorldGridPos);
-						FVector2D UV(FaceVertices[i].UV);
-						UVs.Add(UV / 2.0f);
+						// 获取第一个顶点的世界坐标（已乘以2）
+						FIntVector VertexWorldPos = FaceVertices[i].V;
+
+						FVector Location(VertexWorldPos);
+						SectionData.Vertices.Add(Location / 2.0f * VoxelSize - TileWorldGridPos);
+
+						FVector2D BaseUV((float)FaceVertices[i].UV.X / 2.0f, (float)FaceVertices[i].UV.Y / 2.0f);
 						
-						// 如果从 AryTextureID 获取到了 TextureID，使用它来设置顶点颜色或材质
+						// 初始化所有层的UV为(0,0)或BaseUV（根据需求选择）
+						FVector2D UV0 = BaseUV;  // 默认使用BaseUV
+						FVector2D UV1 = FVector2D(0, 0);
+						FVector2D UV2 = FVector2D(0, 0);
+						FVector2D UV3 = FVector2D(0, 0);
+						
+						// 从 AryTextureBlockInfo 获取4层纹理信息
+						if (TileData && TileData->AryTextureIDs.GetSize() > 0 && FaceVertices.Num() > 0)
+						{
+							FIntVector VertexPos = VertexWorldPos / 2 + HalfSize;
+							int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
+
+							if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
+							{
+								int32 TextureID = TileData->AryTextureIDs[UVIndex];
+
+								// 处理4层纹理（UVs0[0] 到 UVs0[3]）
+								FVector2D LayerUVs[4] = { FVector2D(0, 0), FVector2D(0, 0), FVector2D(0, 0), FVector2D(0, 0) };
+
+								int32 TextureBlockID = 0;
+
+								FWar3TextureInfo TextureInfo = GetTextureInfoByID(TextureID);
+
+								// 如果是0，随机从16到31（仅对8列纹理）
+								if (TextureBlockID == 0 && TextureInfo.Columns == 8)
+									TextureBlockID = RandBlockID;
+
+								// 计算该层的UV
+								int32 U = TextureBlockID / 4;
+								int32 V = TextureBlockID % 4;
+								FVector2D CalculatedUV;
+								if (TextureInfo.Columns == 8)
+									CalculatedUV = FVector2D((U + FMath::Abs(BaseUV.X)) * 0.125f, (V + FMath::Abs(BaseUV.Y)) * 0.25f);
+								else
+									CalculatedUV = FVector2D((U + FMath::Abs(BaseUV.X)) * 0.25f, (V + FMath::Abs(BaseUV.Y)) * 0.25f);
+
+								ucINT UVPos = MapTextureIDs.FindKey(TextureID);
+								if (UVPos != 0)
+									ucINT A = 0;
+								LayerUVs[UVPos] = CalculatedUV;
+
+								// 设置各层UV
+								UV0 = LayerUVs[0];
+								UV1 = LayerUVs[1];
+								UV2 = LayerUVs[2];
+								UV3 = LayerUVs[3];
+							}
+						}
+
+						// 每个顶点都有所有层的UV数据（即使某些层是(0,0)）
+						SectionData.UVs0.Add(UV0);  // UV0 - 第一层
+						SectionData.UVs1.Add(UV1);  // UV1 - 第二层
+						SectionData.UVs2.Add(UV2);  // UV2 - 第三层
+						SectionData.UVs3.Add(UV3);  // UV3 - 第四层
+						
+						// 如果从 AryTextureBlockInfo 获取到了 TextureID，使用它来设置顶点颜色或材质
 						// 这里先保持原有的颜色逻辑，后续可以通过材质参数传递 TextureID
 						FColor VertexColor = FaceVertices[i].Color;
-						if (TextureID > 0 && Terrain)
-						{
-							// 可以通过顶点颜色传递 TextureID 信息，或者使用材质参数
-							// 这里先保持原有逻辑，后续可以扩展
-						}
-						VertexColors.Add(VertexColor);
+						SectionData.VertexColors.Add(VertexColor);
 
-						Normals.Add(FaceNormal);
-						Tangents.Add(FProcMeshTangent(0, 0, 1));
+						SectionData.Normals.Add(FaceNormal);
+						SectionData.Tangents.Add(FProcMeshTangent(0, 0, 1));
 					}
 					for (const FIntVector& Face : TrianglesToRender)
 					{
-						Triangles.Add(BaseIndex + Face.X);
-						Triangles.Add(BaseIndex + Face.Y);
-						Triangles.Add(BaseIndex + Face.Z);
+						SectionData.Triangles.Add(BaseIndex + Face.X);
+						SectionData.Triangles.Add(BaseIndex + Face.Y);
+						SectionData.Triangles.Add(BaseIndex + Face.Z);
 					}
 				}
 			}
 		}
 	}
 }
-
-bool AVoxelTile::DoFacesOverlap(int32 X, int32 Y, int32 Z, int32 FaceIndex, int32 AdjX, int32 AdjY, int32 AdjZ) const
-{
-	// 获取当前体素和相邻体素的数据
-	UCVoxelData CurrentVoxel = GetVoxel(X, Y, Z);
-	UCVoxelData AdjVoxel = GetVoxel(AdjX, AdjY, AdjZ);
-
-	// 如果相邻体素为空，面不重叠
-	if (AdjVoxel.LayerID == UCVoxelData_Layer_Null)
-		return false;
-
-	// 如果Layer不同，面不重叠
-	if (CurrentVoxel.LayerID != AdjVoxel.LayerID)
-		return false;
-
-	// 获取体素类型和旋转
-	uint8 CurrentBlockType = CurrentVoxel.Type & 0x03;
-	uint8 CurrentRoll = UCVoxelData_GetRoll(CurrentVoxel);
-	uint8 CurrentYaw = UCVoxelData_GetYaw(CurrentVoxel);
-	uint8 AdjBlockType = AdjVoxel.Type & 0x03;
-	uint8 AdjRoll = UCVoxelData_GetRoll(AdjVoxel);
-	uint8 AdjYaw = UCVoxelData_GetYaw(AdjVoxel);
-
-	// 对面索引（当前面的法线方向对应的相邻体的面）
-	int32 OppositeFaceIndex = -1;
-	if (FaceIndex == 6)
-	{
-		// 斜面：暂时使用Top的对立面
-		OppositeFaceIndex = 5; // Slope -> Bottom
-	}
-	else
-	{
-		switch (FaceIndex)
-		{
-		case 0: OppositeFaceIndex = 2; break; // Left -> Right
-		case 1: OppositeFaceIndex = 3; break; // Front -> Back
-		case 2: OppositeFaceIndex = 0; break; // Right -> Left
-		case 3: OppositeFaceIndex = 1; break; // Back -> Front
-		case 4: OppositeFaceIndex = 5; break; // Top -> Bottom
-		case 5: OppositeFaceIndex = 4; break; // Bottom -> Top
-		}
-	}
-
-	// 如果是普通方块，对面也是普通方块，则完全重叠
-	if (CurrentBlockType == UCVoxelBlockType_Cube && AdjBlockType == UCVoxelBlockType_Cube)
-	{
-		return true; // 两个都是普通方块，完全重叠
-	}
-
-	// 对于斜面和三角斜面，需要具体判断面的形状
-	if (FaceIndex == 4) // 顶部面
-	{
-		if (CurrentBlockType == UCVoxelBlockType_SquareSlope)
-		{
-			// 当前是方斜面的顶部（斜面）
-			if (AdjBlockType == UCVoxelBlockType_Cube)
-			{
-				// 相邻是普通方块（正方形面），完全重叠
-				return true;
-			}
-			else if (AdjBlockType == UCVoxelBlockType_SquareSlope)
-			{
-				// 相邻也是方斜面，检查旋转是否匹配
-				// 如果旋转相同，面完全重叠
-				if (CurrentYaw == AdjYaw && CurrentRoll == AdjRoll)
-					return true;
-				// 否则需要更复杂的几何计算来判断是否重叠
-				// 这里简化：如果旋转相对（相差180度模4），可能不重叠
-				// 实际上需要根据具体的斜面形状来判断
-				// 暂时假设相同旋转才重叠
-			}
-			else if (AdjBlockType == UCVoxelBlockType_TriangularSlope)
-			{
-				// 相邻是三角斜面，面的形状不同，可能部分重叠
-				// 这里简化处理：认为不重叠（需要渲染）
-				return false;
-			}
-		}
-		else if (CurrentBlockType == UCVoxelBlockType_TriangularSlope)
-		{
-			// 当前是三角斜面的顶部（三角形）
-			if (AdjBlockType == UCVoxelBlockType_Cube)
-			{
-				// 相邻是普通方块（正方形面），可能部分重叠
-				// 三角斜面的三角形是正方形的一部分，所以可能有重叠区域
-				// 这里简化：认为部分重叠，需要更精确的几何计算
-				// 暂时返回false（不重叠），让渲染系统处理
-				return false;
-			}
-			else if (AdjBlockType == UCVoxelBlockType_SquareSlope)
-			{
-				// 相邻是方斜面，形状不同
-				return false;
-			}
-			else if (AdjBlockType == UCVoxelBlockType_TriangularSlope)
-			{
-				// 相邻也是三角斜面，如果旋转相同且切掉的角互补，可能完全重叠
-				// 这里简化：只有旋转相同时才认为可能重叠
-				if (CurrentYaw == AdjYaw && CurrentRoll == AdjRoll)
-				{
-					// 需要检查切掉的角是否在对面
-					// 暂时返回false，让渲染系统处理
-					return false;
-				}
-				return false;
-			}
-		}
-	}
-	else if (FaceIndex == 5) // 底部面
-	{
-		// 底部面对于斜面和三角斜面通常是完整的（正方形）
-		if (AdjBlockType == UCVoxelBlockType_Cube)
-		{
-			return true; // 都是正方形，完全重叠
-		}
-		// 对于斜面，底部面是完整的正方形
-		return true; // 简化处理
-	}
-	else // 侧面（0-3）
-	{
-		// 对于方斜面，侧面通常是完整的（正方形或矩形）
-		// 对于三角斜面，侧面可能被切掉一部分
-
-		if (CurrentBlockType == UCVoxelBlockType_SquareSlope)
-		{
-			// 方斜面的侧面通常是完整的
-			if (AdjBlockType == UCVoxelBlockType_Cube)
-				return true; // 完全重叠
-			else if (AdjBlockType == UCVoxelBlockType_SquareSlope)
-				return true; // 假设完全重叠
-			else
-				return false; // 三角斜面可能有不同的形状
-		}
-		else if (CurrentBlockType == UCVoxelBlockType_TriangularSlope)
-		{
-			// 三角斜面的侧面可能部分被切掉
-			// 需要根据旋转判断哪个侧面被切掉
-			// 这里简化处理：根据旋转和面索引判断
-
-			// 三角斜面切掉的角对应的侧面会被切掉一部分
-			// 需要具体计算，暂时返回false（不重叠）
-			if (AdjBlockType == UCVoxelBlockType_Cube)
-			{
-				// 相邻是普通方块，可能有部分重叠
-				// 需要更精确的几何计算
-				return false;
-			}
-			else
-			{
-				return false; // 简化处理
-			}
-		}
-	}
-
-	// 默认情况：不重叠
-	return false;
-}
-
 
 void AVoxelTile::UpdateMesh(bool Active)
 {
@@ -1146,7 +1043,11 @@ void AVoxelTile::UpdateMesh(bool Active)
 	ClearMeshData();
 	if (!Active)
 	{
-		ProceduralMesh->ClearMeshSection(0);
+		// 清除所有MeshSection
+		for (int32 SectionIndex = 0; SectionIndex < ProceduralMesh->GetNumSections(); ++SectionIndex)
+		{
+			ProceduralMesh->ClearMeshSection(SectionIndex);
+		}
 		return;
 	}
 
@@ -1182,67 +1083,104 @@ void AVoxelTile::ExecuteMeshUpdate()
 	// 清除待处理标志，允许新的刷新请求
 	bMeshUpdatePending = false;
 	
-	// 更新程序化网格组件
-	ProceduralMesh->CreateMeshSection(
-		0,
-		Vertices,
-		Triangles,
-		Normals,
-		UVs,
-		VertexColors,
-		Tangents,
-		true // 启用碰撞
-	);
-
-	// 设置材质
-	if (Material)
+	// 清除所有现有的MeshSection
+	for (int32 SectionIndex = 0; SectionIndex < ProceduralMesh->GetNumSections(); ++SectionIndex)
 	{
-		// 创建 Material Instance Dynamic（如果还没有创建）
-		if (!MaterialInstanceDynamic)
-		{
-			MaterialInstanceDynamic = UMaterialInstanceDynamic::Create(Material, this);
-			UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Created Material Instance Dynamic"));
-		}
+		ProceduralMesh->ClearMeshSection(SectionIndex);
+	}
+	
+	// 获取纹理列表
+	TArray<UTexture2D*> TextureList;
+	if (Terrain)
+	{
+		TextureList = Terrain->GetTextureList();
+	}
+	
+	// 为每个TextureKey创建独立的MeshSection（DrawCall）
+	int32 SectionIndex = 0;
+	for (auto& Pair : MeshSections)
+	{
+		int64 TextureKey = Pair.Key;  // 4个顶点TextureID排序后组合成的int64
+		FMeshSectionData& SectionData = Pair.Value;
 		
-		// 如果有纹理列表，设置默认纹理（第一个纹理）
-		if (Terrain)
+		// 跳过空的Section
+		if (SectionData.Vertices.Num() == 0 || SectionData.Triangles.Num() == 0)
+			continue;
+		
+		// 创建MeshSection
+		ProceduralMesh->CreateMeshSection(
+			SectionIndex,
+			SectionData.Vertices,
+			SectionData.Triangles,
+			SectionData.Normals,
+			SectionData.UVs0,   // UV0 - 第一层
+			SectionData.UVs1,  // UV1 - 第二层
+			SectionData.UVs2,  // UV2 - 第三层
+			SectionData.UVs3,  // UV3 - 第四层
+			SectionData.VertexColors,
+			SectionData.Tangents,
+			true // 启用碰撞
+		);
+		
+		// 为每个Section设置材质
+		if (Material)
 		{
-			TArray<UTexture2D*> TextureList = Terrain->GetTextureList();
-			UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Terrain has %d textures"), TextureList.Num());
+			// 从TextureKey中提取4个顶点的TextureID（已排序）
+			uint16 TextureID0 = (uint16)(TextureKey & 0xFFFF);
+			uint16 TextureID1 = (uint16)((TextureKey >> 16) & 0xFFFF);
+			uint16 TextureID2 = (uint16)((TextureKey >> 32) & 0xFFFF);
+			uint16 TextureID3 = (uint16)((TextureKey >> 48) & 0xFFFF);
 			
-			if (TextureList.Num() > 0)
+			// 为这个Section创建MaterialInstanceDynamic
+			UMaterialInstanceDynamic* SectionMaterial = UMaterialInstanceDynamic::Create(Material, this);
+			
+			// 设置4层纹理参数（根据TextureID从纹理列表中获取）
+			// TextureID从0开始（0表示无纹理，1表示第一个纹理），所以索引是TextureID-1
+			for (int32 LayerIndex = 0; LayerIndex < 4; ++LayerIndex)
 			{
-				UTexture2D* DefaultTexture = TextureList[0];
-				if (DefaultTexture)
+				FName TextureParamName = FName(*FString::Printf(TEXT("Texture%d"), LayerIndex));
+				UTexture2D* LayerTexture = nullptr;
+				
+				// 根据该层的TextureID获取纹理
+				uint16 LayerTextureID = 0;
+				if (LayerIndex == 0) LayerTextureID = TextureID0;
+				else if (LayerIndex == 1) LayerTextureID = TextureID1;
+				else if (LayerIndex == 2) LayerTextureID = TextureID2;
+				else if (LayerIndex == 3) LayerTextureID = TextureID3;
+				
+				// TextureID从1开始（0表示无纹理），所以索引是TextureID-1
+				if (LayerTextureID > 0 && (LayerTextureID - 1) < TextureList.Num())
 				{
-					// 设置纹理参数（参数名需要在材质中定义，例如 "Texture" 或 "BaseTexture"）
-					// 注意：这里的参数名需要与材质中的 Texture Parameter 名称匹配
-					MaterialInstanceDynamic->SetTextureParameterValue(FName(TEXT("Texture")), DefaultTexture);
-					UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Set texture parameter 'Texture' (Size: %dx%d)"), 
-						DefaultTexture->GetSizeX(), DefaultTexture->GetSizeY());
+					LayerTexture = TextureList[LayerTextureID - 1];
+				}
+				else if (TextureList.Num() > 0)
+				{
+					// 如果该层没有对应的纹理，使用第一个纹理作为默认值
+					LayerTexture = TextureList[0];
+				}
+				
+				if (LayerTexture)
+				{
+					SectionMaterial->SetTextureParameterValue(TextureParamName, LayerTexture);
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("AVoxelTile::ExecuteMeshUpdate: DefaultTexture is null"));
+					// 如果没有纹理，设置为null
+					SectionMaterial->SetTextureParameterValue(TextureParamName, nullptr);
 				}
 			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("AVoxelTile::ExecuteMeshUpdate: TextureList is empty"));
-			}
+						
+			ProceduralMesh->SetMaterial(SectionIndex, SectionMaterial);
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("AVoxelTile::ExecuteMeshUpdate: Terrain is null"));
+			ProceduralMesh->SetMaterial(SectionIndex, nullptr);
 		}
 		
-		ProceduralMesh->SetMaterial(0, MaterialInstanceDynamic);
-		UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Material applied to ProceduralMesh"));
+		SectionIndex++;
 	}
-	else
-	{
-		ProceduralMesh->SetMaterial(0, nullptr);
-	}
+	
+	UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Created %d mesh sections"), SectionIndex);
 }
 
 void AVoxelTile::SetTextureToMaterial(int32 TextureID, UTexture2D* Texture)
@@ -1265,6 +1203,24 @@ void AVoxelTile::SetTextureToMaterial(int32 TextureID, UTexture2D* Texture)
 	{
 		ProceduralMesh->SetMaterial(0, MaterialInstanceDynamic);
 	}
+}
+
+UTexture2D* AVoxelTile::GetTextureByID(int32 TextureID) const
+{
+	if (Terrain)
+	{
+		return Terrain->GetTextureByID(TextureID);
+	}
+	return nullptr;
+}
+
+FWar3TextureInfo AVoxelTile::GetTextureInfoByID(int32 TextureID) const
+{
+	if (Terrain)
+	{
+		return Terrain->GetTextureInfoByID(TextureID);
+	}
+	return FWar3TextureInfo();
 }
 
 bool AVoxelTile::IntersectAABB(const FVector& RayOrigin, const FVector& RayDirection, float& OutTMin) const

@@ -150,7 +150,229 @@ FInputRayHit UVoxelEditorEditTool::CanBeginClickDragSequence(const FInputDeviceR
 
 void UVoxelEditorEditTool::OnPlace(const FInputDeviceRay& PressPos, UVoxelTerrain* Terrain, int32 BlockType, FIntVector HitVoxelPos, FVector HitPos, FVector HitNormal)
 {
-	if (BlockType == VOXEL_BLOCK_TYPE_PLACE)
+	if (BlockType == VOXEL_BLOCK_TYPE_PAINT_TEXTURE)
+	{
+		// 涂抹纹理：将选中的纹理ID填充到体素坐标对应的顶点的UVs[0].TextureID
+		// 获取编辑器模式和Toolkit
+		UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();
+		if (!VoxelMode)
+		{
+			return;
+		}
+
+		AVoxelWorldEditor* WorldEditor = VoxelMode->GetVoxelWorldEditorInstance();
+		if (!WorldEditor || !IsValid(WorldEditor))
+		{
+			return;
+		}
+
+		// 获取选中的纹理ID
+		TSharedPtr<FVoxelEditorEditorModeToolkit> Toolkit = VoxelMode->GetToolkit();
+		int32 SelectedTextureID = Toolkit->GetSelectedTextureIndex();
+
+		if (SelectedTextureID < 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("VoxelEditorEditTool: No texture selected for painting"));
+			return;
+		}
+
+		// 计算Tile坐标
+		const int32 TileSizeX = VOXEL_TILE_SIZE_X; // 32
+		const int32 TileSizeY = VOXEL_TILE_SIZE_Y; // 32
+		const int32 TileSizeZ = VOXEL_TILE_SIZE_Z; // 64
+		const int32 HalfTileSizeX = TileSizeX / 2; // 16
+		const int32 HalfTileSizeY = TileSizeY / 2; // 16
+		const int32 HalfTileSizeZ = TileSizeZ / 2; // 32
+
+		auto FloorDiv = [](int32 Dividend, int32 Divisor) -> int32 {
+			if (Dividend >= 0)
+				return Dividend / Divisor;
+			else
+				return (Dividend - Divisor + 1) / Divisor;
+		};
+
+		int32 TileX = FloorDiv(HitVoxelPos.X, TileSizeX);
+		int32 TileY = FloorDiv(HitVoxelPos.Y, TileSizeY);
+
+		// 获取Tile
+		AVoxelTile* HitTile = Terrain->GetTile(TileX, TileY, TargetWorld, false);
+		if (!HitTile || !HitTile->IsActive())
+		{
+			return;
+		}
+
+		// 获取TileData
+		UCVoxelTileData* TileData = HitTile->GetTileData();
+		if (!TileData)
+		{
+			return;
+		}
+
+		// 计算体素在Tile中的局部坐标（存储坐标）
+		FIntVector TileWorldPos(TileX * TileSizeX, TileY * TileSizeY, 0);
+		FIntVector LocalPos = HitVoxelPos - TileWorldPos;
+		int32 StorageX = LocalPos.X;
+		int32 StorageY = LocalPos.Y;
+		int32 StorageZ = LocalPos.Z;
+
+		// 验证坐标
+		if (StorageX < 0 || StorageX >= TileSizeX ||
+			StorageY < 0 || StorageY >= TileSizeY ||
+			StorageZ < 0 || StorageZ >= TileSizeZ)
+		{
+			return;
+		}
+
+		// 计算UV数组的尺寸
+		const int32 UVSizeX = TileSizeX + 1;  // 33
+		const int32 UVSizeY = TileSizeY + 1;  // 33
+		const int32 UVSizeZ = TileSizeZ + 1;  // 65
+
+		// 根据HitNormal确定点击的是哪个面，只更新该面的4个顶点
+		// 将法线方向转换为整数方向（-1, 0, 1）
+		FIntVector FaceNormal(
+			FMath::RoundToInt(HitNormal.X),
+			FMath::RoundToInt(HitNormal.Y),
+			FMath::RoundToInt(HitNormal.Z)
+		);
+
+		// 确定面的4个顶点偏移量
+		// 体素有6个面，每个面有4个顶点
+		FIntVector VertexOffsets[4];
+		
+		if (FaceNormal.X > 0) // 右面 (+X方向)
+		{
+			// 右面的4个顶点：(X+1, Y, Z), (X+1, Y+1, Z), (X+1, Y, Z+1), (X+1, Y+1, Z+1)
+			VertexOffsets[0] = FIntVector(1, 0, 0);
+			VertexOffsets[1] = FIntVector(1, 1, 0);
+			VertexOffsets[2] = FIntVector(1, 0, 1);
+			VertexOffsets[3] = FIntVector(1, 1, 1);
+		}
+		else if (FaceNormal.X < 0) // 左面 (-X方向)
+		{
+			// 左面的4个顶点：(X, Y, Z), (X, Y+1, Z), (X, Y, Z+1), (X, Y+1, Z+1)
+			VertexOffsets[0] = FIntVector(0, 0, 0);
+			VertexOffsets[1] = FIntVector(0, 1, 0);
+			VertexOffsets[2] = FIntVector(0, 0, 1);
+			VertexOffsets[3] = FIntVector(0, 1, 1);
+		}
+		else if (FaceNormal.Y > 0) // 前面 (+Y方向)
+		{
+			// 前面的4个顶点：(X, Y+1, Z), (X+1, Y+1, Z), (X, Y+1, Z+1), (X+1, Y+1, Z+1)
+			VertexOffsets[0] = FIntVector(0, 1, 0);
+			VertexOffsets[1] = FIntVector(1, 1, 0);
+			VertexOffsets[2] = FIntVector(0, 1, 1);
+			VertexOffsets[3] = FIntVector(1, 1, 1);
+		}
+		else if (FaceNormal.Y < 0) // 后面 (-Y方向)
+		{
+			// 后面的4个顶点：(X, Y, Z), (X+1, Y, Z), (X, Y, Z+1), (X+1, Y, Z+1)
+			VertexOffsets[0] = FIntVector(0, 0, 0);
+			VertexOffsets[1] = FIntVector(1, 0, 0);
+			VertexOffsets[2] = FIntVector(0, 0, 1);
+			VertexOffsets[3] = FIntVector(1, 0, 1);
+		}
+		else if (FaceNormal.Z > 0) // 上面 (+Z方向)
+		{
+			// 上面的4个顶点：(X, Y, Z+1), (X+1, Y, Z+1), (X, Y+1, Z+1), (X+1, Y+1, Z+1)
+			VertexOffsets[0] = FIntVector(0, 0, 1);
+			VertexOffsets[1] = FIntVector(1, 0, 1);
+			VertexOffsets[2] = FIntVector(0, 1, 1);
+			VertexOffsets[3] = FIntVector(1, 1, 1);
+		}
+		else if (FaceNormal.Z < 0) // 下面 (-Z方向)
+		{
+			// 下面的4个顶点：(X, Y, Z), (X+1, Y, Z), (X, Y+1, Z), (X+1, Y+1, Z)
+			VertexOffsets[0] = FIntVector(0, 0, 0);
+			VertexOffsets[1] = FIntVector(1, 0, 0);
+			VertexOffsets[2] = FIntVector(0, 1, 0);
+			VertexOffsets[3] = FIntVector(1, 1, 0);
+		}
+		else
+		{
+			// 如果法线无效，默认使用底面
+			VertexOffsets[0] = FIntVector(0, 0, 0);
+			VertexOffsets[1] = FIntVector(1, 0, 0);
+			VertexOffsets[2] = FIntVector(0, 1, 0);
+			VertexOffsets[3] = FIntVector(1, 1, 0);
+		}
+
+		// 获取体素大小
+		float VoxelSize = HitTile->VoxelSize;
+		
+		// 获取Tile的世界位置（Actor位置）
+		FVector TileWorldPosVector = HitTile->GetActorLocation();
+				
+		// 计算体素的世界坐标位置（左下角）
+		// Storage坐标转换为局部坐标：Storage坐标 - HalfTileSize
+		FVector VoxelWorldMin = TileWorldPosVector + FVector(
+			(StorageX - HalfTileSizeX) * VoxelSize,
+			(StorageY - HalfTileSizeY) * VoxelSize,
+			(StorageZ - HalfTileSizeZ) * VoxelSize
+		);
+		
+		// 计算点击位置相对于体素左下角的局部坐标
+		FVector LocalHitPos = HitPos - VoxelWorldMin;
+		
+		// 计算4个顶点的世界坐标位置，并找到最近的顶点
+		float MinDistance = FLT_MAX;
+		int32 NearestVertexIdx = -1;
+		
+		for (int32 VertexIdx = 0; VertexIdx < 4; ++VertexIdx)
+		{
+			FIntVector VertexPos = FIntVector(StorageX, StorageY, StorageZ) + VertexOffsets[VertexIdx];
+			
+			// 验证顶点坐标是否在有效范围内
+			if (VertexPos.X < 0 || VertexPos.X > TileSizeX ||
+				VertexPos.Y < 0 || VertexPos.Y > TileSizeY ||
+				VertexPos.Z < 0 || VertexPos.Z > TileSizeZ)
+			{
+				continue; // 跳过超出范围的顶点
+			}
+			
+			// 计算顶点的世界坐标位置
+			FVector VertexWorldPos = VoxelWorldMin + FVector(
+				VertexOffsets[VertexIdx].X * VoxelSize,
+				VertexOffsets[VertexIdx].Y * VoxelSize,
+				VertexOffsets[VertexIdx].Z * VoxelSize
+			);
+			
+			// 计算点击位置到顶点的距离
+			float Distance = FVector::Dist(HitPos, VertexWorldPos);
+			
+			if (Distance < MinDistance)
+			{
+				MinDistance = Distance;
+				NearestVertexIdx = VertexIdx;
+			}
+		}
+		
+		// 只修改最近的顶点
+		if (NearestVertexIdx >= 0)
+		{
+			FIntVector VertexPos = FIntVector(StorageX, StorageY, StorageZ) + VertexOffsets[NearestVertexIdx];
+			
+			// 计算顶点索引
+			int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
+			
+			if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
+			{
+				// 直接更新TextureID（0表示无纹理，1表示第一个纹理）
+				// SelectedTextureID 从1开始（0表示无纹理），所以直接使用
+				TileData->AryTextureIDs[UVIndex] = SelectedTextureID;
+			}
+		}
+
+		// 触发Tile更新网格
+		HitTile->UpdateMesh(true);
+
+		// 更新LastPaintVoxelPos，用于拖拽时避免重复涂抹同一体素
+		LastPaintVoxelPos = HitVoxelPos;
+
+		UE_LOG(LogTemp, Log, TEXT("VoxelEditorEditTool: Painted texture ID %d to voxel at (%d, %d, %d)"), 
+			SelectedTextureID, HitVoxelPos.X, HitVoxelPos.Y, HitVoxelPos.Z);
+	}
+	else if (BlockType == VOXEL_BLOCK_TYPE_PLACE)
 	{
 		// Check Shift key state for deletion (immediate deletion on press)
 		bool bDelete = false;
@@ -405,7 +627,18 @@ void UVoxelEditorEditTool::OnClickPress(const FInputDeviceRay& PressPos)
 		UpdateVoxelEditVolume(WorldEditor->GetWorld(), Terrain);
 	}
 	else
+	{
 		OnPlace(PressPos, Terrain, BlockType, HitVoxelPos, HitPos, HitNormal);
+		
+		// 对于涂抹纹理，启动painting模式以便拖拽时也能涂抹
+		if (BlockType == VOXEL_BLOCK_TYPE_PAINT_TEXTURE)
+		{
+			bIsPainting = true;
+			LastPaintVoxelPos = HitVoxelPos;
+			PaintHitNormal = HitNormal;
+			PaintRayDirection = PressPos.WorldRay.Direction.GetSafeNormal();
+		}
+	}
 }
 
 void UVoxelEditorEditTool::OnClickDrag(const FInputDeviceRay& DragPos)
@@ -414,7 +647,8 @@ void UVoxelEditorEditTool::OnClickDrag(const FInputDeviceRay& DragPos)
 	if (bIsPainting && (CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE || 
 	                    CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_SQUARE_SLOPE || 
 	                    CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_SLOPE || 
-	                    CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT))
+	                    CurrentBlockType == VOXEL_BLOCK_TYPE_PLACE_TRIANGULAR_COMPLEMENT ||
+	                    CurrentBlockType == VOXEL_BLOCK_TYPE_PAINT_TEXTURE))
 	{
 		// Get the editor mode to access VoxelWorldEditor
 		UVoxelEditorEditorMode* VoxelMode = UVoxelEditorEditorMode::GetActiveEditorMode();

@@ -33,6 +33,7 @@ UVoxelTerrain::UVoxelTerrain()
 void UVoxelTerrain::SetTextureList(const TArray<FString>& TexturePaths)
 {
 	TextureList.Empty();
+	TextureInfoList.Empty();
 	
 	UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: Loading %d textures"), TexturePaths.Num());
 	
@@ -54,9 +55,19 @@ void UVoxelTerrain::SetTextureList(const TArray<FString>& TexturePaths)
 				UTexture2D* Texture = FImageUtils::ImportBufferAsTexture2D(ImageData);
 				if (Texture)
 				{
+					int32 TextureWidth = Texture->GetSizeX();
+					int32 TextureHeight = Texture->GetSizeY();
+					
+					// 自动检测 War3 纹理结构
+					FWar3TextureInfo TextureInfo(TextureWidth, TextureHeight);
+					
 					TextureList.Add(Texture);
+					TextureInfoList.Add(TextureInfo);
+					
 					UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: Successfully loaded texture: %s (Size: %dx%d)"), 
-						*FullPath, Texture->GetSizeX(), Texture->GetSizeY());
+						*FullPath, TextureWidth, TextureHeight);
+					UE_LOG(LogTemp, Log, TEXT("UVoxelTerrain::SetTextureList: War3 Texture Info - TotalCells: %d, HasRandomVariants: %d, Rows: %d, Columns: %d"), 
+						TextureInfo.TotalCells, TextureInfo.bHasRandomVariants, TextureInfo.Rows, TextureInfo.Columns);
 				}
 				else
 				{
@@ -79,11 +90,16 @@ void UVoxelTerrain::SetTextureList(const TArray<FString>& TexturePaths)
 
 UTexture2D* UVoxelTerrain::GetTextureByID(int32 TextureID) const
 {
-	if (TextureID > 0 && TextureID <= TextureList.Num())
-	{
-		return TextureList[TextureID - 1]; // TextureID 从1开始，数组从0开始
-	}
+	if (TextureID >= 0 && TextureID <= TextureInfoList.Num())
+		return TextureList[TextureID]; // TextureID 从1开始，数组从0开始
 	return nullptr;
+}
+
+FWar3TextureInfo UVoxelTerrain::GetTextureInfoByID(int32 TextureID) const
+{
+	if (TextureID >= 0 && TextureID <= TextureInfoList.Num())
+		return TextureInfoList[TextureID]; // TextureID 从1开始，数组从0开始
+	return FWar3TextureInfo(); // 返回默认值
 }
 
 AVoxelTile* UVoxelTerrain::GetTile(int32 TileX, int32 TileY, UWorld* World, bool AutoCreate)

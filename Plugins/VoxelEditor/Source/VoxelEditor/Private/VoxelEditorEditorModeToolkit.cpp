@@ -1,6 +1,11 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+// 对应的头文件必须作为第一个包含
 #include "VoxelEditorEditorModeToolkit.h"
+
+// 确保在包含任何可能间接包含Windows.h的头文件之前，先包含CoreMinimal
+#include "CoreMinimal.h"
+
 #include "VoxelEditorEditorMode.h"
 #include "VoxelEditorEditorModeCommands.h"
 #include "VoxelWorldEditorMapsWidget.h"
@@ -36,6 +41,7 @@
 #include "ImageUtils.h"
 #include "Slate/SlateBrushAsset.h"
 #include "Styling/SlateBrush.h"
+#include "Brushes/SlateDynamicImageBrush.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
@@ -707,7 +713,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::GetEditToolWidget() const
 					.AutoHeight()
 					[
 						BuildTextureListWidget().ToSharedRef()
-					]
+						]
 				]
 			]
 		];
@@ -1324,8 +1330,7 @@ void FVoxelEditorEditorModeToolkit::RemoveTexture(int32 Index) const
 
 TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() const
 {
-	TSharedPtr<SWrapBox> WrapBox = SNew(SWrapBox)
-		.InnerSlotPadding(FVector2D(5.0f, 5.0f));
+	TSharedPtr<SVerticalBox> VerticalBox = SNew(SVerticalBox);
 
 	if (VoxelWorldEditorInstance.IsValid())
 	{
@@ -1361,17 +1366,53 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 							UTexture2D* Texture = FImageUtils::ImportBufferAsTexture2D(ImageData);
 							if (Texture)
 							{
-								// 创建动态画笔
-								TSharedPtr<FSlateBrush> DynamicBrush = MakeShareable(new FSlateBrush());
-								DynamicBrush->SetResourceObject(Texture);
-								DynamicBrush->ImageSize = FVector2D(Texture->GetSizeX(), Texture->GetSizeY());
-								DynamicBrush->DrawAs = ESlateBrushDrawType::Image;
-								DynamicBrush->Tiling = ESlateBrushTileType::NoTile;
+								// 获取纹理尺寸
+								int32 TextureWidth = Texture->GetSizeX();
+								int32 TextureHeight = Texture->GetSizeY();
+								float AspectRatio = (float)TextureWidth / (float)TextureHeight;
+								
+								// 根据长宽比计算UV区域
+								FBox2f UVRegion;
+								if (AspectRatio >= 1.9f) // 长度是宽度的两倍或更多（2:1或更大）
+								{
+									// 显示左上角：宽度1/8，高度1/4
+									UVRegion = FBox2f(
+										FVector2f(0.0f, 0.0f),      // Min: 左上角
+										FVector2f(0.125f, 0.25f)    // Max: 宽度1/8，高度1/4
+									);
+								}
+								else // 长宽相等或接近（1:1）
+								{
+									// 显示左上角1/4
+									UVRegion = FBox2f(
+										FVector2f(0.0f, 0.0f),      // Min: 左上角
+										FVector2f(0.5f, 0.5f)       // Max: 宽度1/2，高度1/2
+									);
+								}
+								
+								// 创建一个自定义的Brush类来设置UV区域
+								// 由于FSlateBrush的UVRegion是protected，我们创建一个继承类
+								struct FCustomSlateBrush : public FSlateBrush
+								{
+									FCustomSlateBrush(UTexture2D* InTexture, const FBox2f& InUVRegion)
+									{
+										SetResourceObject(InTexture);
+										ImageSize = FVector2D(InTexture->GetSizeX(), InTexture->GetSizeY());
+										DrawAs = ESlateBrushDrawType::Image;
+										Tiling = ESlateBrushTileType::NoTile;
+										UVRegion = InUVRegion; // 在构造函数中可以访问protected成员
+									}
+								};
+								
+								// 创建自定义画笔
+								TSharedPtr<FCustomSlateBrush> CustomBrush = MakeShareable(
+									new FCustomSlateBrush(Texture, UVRegion)
+								);
 								
 								// 将画笔保存到静态缓存中（使用路径作为键）
 								static TMap<FString, TSharedPtr<FSlateBrush>> TextureBrushCache;
-								TextureBrushCache.Add(FullTexturePath, DynamicBrush);
-								Brush = DynamicBrush.Get();
+								TextureBrushCache.Add(FullTexturePath, CustomBrush);
+								Brush = CustomBrush.Get();
 							}
 						}
 					}
@@ -1383,55 +1424,106 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 					Brush = FAppStyle::GetBrush("WhiteBrush");
 				}
 				
-				WrapBox->AddSlot()
-					.Padding(5.0f)
+				VerticalBox->AddSlot()
+					.AutoHeight()
+					.Padding(0, 5, 0, 0)
 					[
-						SNew(SBorder)
-						.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
-						.Padding(5.0f)
+						SNew(SButton)
+						.ButtonStyle(FAppStyle::Get(), "NoBorder")
+						.ContentPadding(0.0f)
+						.OnClicked_Lambda([this, TextureIndex]()
+						{
+							SelectTexture(TextureIndex);
+							return FReply::Handled();
+						})
 						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()
-							.AutoHeight()
+							SNew(SBorder)
+							// 根据是否选中来改变边框和背景
+							.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+							.BorderBackgroundColor_Lambda([this, TextureIndex]()
+							{
+								if (SelectedTextureIndex == TextureIndex)
+								{
+									// 选中状态：蓝色背景
+									return FLinearColor(0.2f, 0.5f, 0.8f, 0.6f);
+								}
+								else
+								{
+									// 未选中状态：默认背景
+									return FLinearColor(0.15f, 0.15f, 0.15f, 1.0f);
+								}
+							})
+							.Padding(8.0f)
 							[
-								SNew(SBox)
-								.WidthOverride(100.0f)
-								.HeightOverride(100.0f)
+								SNew(SHorizontalBox)
+								// 左侧：纹理预览图
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								.VAlign(VAlign_Center)
+								.Padding(0, 0, 10, 0)
 								[
-								SNew(SImage)
-								.Image(Brush)
+									SNew(SBox)
+									.WidthOverride(60.0f)
+									.HeightOverride(60.0f)
+									[
+										SNew(SImage)
+										.Image(Brush)
+									]
 								]
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(0, 5, 0, 0)
-							[
-								SNew(STextBlock)
-								.Text_Lambda([WorldEditor, TextureIndex]()
-								{
-									UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
-									if (TextureIndex >= 0 && TextureIndex < MapManager.TextureConfig.AryTexturePaths.GetSize())
-									{
-										UCString TexturePathUC = MapManager.TextureConfig.AryTexturePaths[TextureIndex];
-										FString TexturePath = WorldEditor->UCStringToFString(TexturePathUC);
-										return FText::FromString(FPaths::GetCleanFilename(TexturePath));
-									}
-									return FText::GetEmpty();
-								})
-								.Justification(ETextJustify::Center)
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(0, 5, 0, 0)
-							[
-								SNew(SButton)
-								.Text(LOCTEXT("DeleteTexture", "删除"))
-								.OnClicked_Lambda([this, TextureIndex]()
-								{
-									RemoveTexture(TextureIndex);
-									// RemoveTexture 内部已经处理了刷新
-									return FReply::Handled();
-								})
+								// 右侧：文字和删除按钮
+								+ SHorizontalBox::Slot()
+								.FillWidth(1.0f)
+								.VAlign(VAlign_Center)
+								[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									.VAlign(VAlign_Center)
+									[
+										SNew(STextBlock)
+										.Text_Lambda([WorldEditor, TextureIndex]()
+										{
+											UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
+											if (TextureIndex >= 0 && TextureIndex < MapManager.TextureConfig.AryTexturePaths.GetSize())
+											{
+												UCString TexturePathUC = MapManager.TextureConfig.AryTexturePaths[TextureIndex];
+												FString TexturePath = WorldEditor->UCStringToFString(TexturePathUC);
+												return FText::FromString(FPaths::GetCleanFilename(TexturePath));
+											}
+											return FText::GetEmpty();
+										})
+										.Justification(ETextJustify::Left)
+										.Font(FCoreStyle::GetDefaultFontStyle("Regular", 12))
+										.ColorAndOpacity_Lambda([this, TextureIndex]()
+										{
+											if (SelectedTextureIndex == TextureIndex)
+											{
+												// 选中状态：白色文字
+												return FSlateColor(FLinearColor::White);
+											}
+											else
+											{
+												// 未选中状态：默认颜色
+												return FSlateColor::UseForeground();
+											}
+										})
+									]
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									.Padding(0, 8, 0, 0)
+									[
+										SNew(SButton)
+										.Text(LOCTEXT("DeleteTexture", "删除"))
+										.HAlign(HAlign_Left)
+										.OnClicked_Lambda([this, TextureIndex]()
+										{
+											RemoveTexture(TextureIndex);
+											// RemoveTexture 内部已经处理了刷新
+											// 返回 Handled 以阻止事件冒泡到父按钮
+											return FReply::Handled();
+										})
+									]
+								]
 							]
 						]
 					];
@@ -1444,8 +1536,44 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 		+ SScrollBox::Slot()
 		.Padding(5.0f)
 		[
-			WrapBox.ToSharedRef()
+			VerticalBox.ToSharedRef()
 		];
+}
+
+void FVoxelEditorEditorModeToolkit::SelectTexture(int32 Index) const
+{
+	// 更新选中的纹理索引
+	SelectedTextureIndex = Index;
+	
+	UE_LOG(LogTemp, Log, TEXT("Selected texture index: %d"), Index);
+	
+	// 由于GetEditToolWidget会缓存Widget，需要重置缓存才能触发重新构建
+	// 但为了避免在回调中立即销毁Widget导致崩溃，我们使用FTSTicker延迟执行
+	if (GetActiveToolIndex() == 1) // Edit Tool
+	{
+		// 使用FTSTicker在下一帧执行刷新，避免在回调中立即操作Widget
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float DeltaTime)
+		{
+			// 重置缓存，强制下次调用时重新创建
+			EditToolWidget.Reset();
+			MainContentWidget.Reset();
+			
+			// 强制刷新 WidgetSwitcher
+			if (ToolContentSwitcher.IsValid())
+			{
+				ToolContentSwitcher->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+			}
+			
+			// 强制刷新整个工具包内容
+			if (ToolkitWidget.IsValid())
+			{
+				ToolkitWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+			}
+			
+			// 只执行一次
+			return false;
+		}));
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

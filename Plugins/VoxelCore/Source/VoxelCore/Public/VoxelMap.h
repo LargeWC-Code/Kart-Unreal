@@ -189,6 +189,25 @@ inline ucBYTE UCVoxelData_GetTriSlopeDirectionIndex(ucCONST UCVoxelData& Voxel)
 
 SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelData, UCVoxelData, ucTRUE);
 
+struct UCVoxelTextureBlockInfo
+{
+	struct UCVoxelUV
+	{
+		ucWORD		TextureID : 10;
+		ucWORD		BlockID : 6;
+	};
+	union
+	{
+		UCVoxelUV	UVs[4];
+		ucUINT64	Data;
+	};
+	UCVoxelTextureBlockInfo()
+	{
+		Data = 0;
+	}
+};
+typedef UCArray<UCVoxelTextureBlockInfo, UCVoxelTextureBlockInfo>	UCVoxelTextureBlockInfoArray;
+
 // Tile 数据：存储一个 Tile 的坐标和体素数据
 struct VOXELCORE_API UCVoxelTileData
 {
@@ -196,7 +215,7 @@ struct VOXELCORE_API UCVoxelTileData
 	ucINT			TileY;			// Tile 坐标 Y
 
 	UCIntArray		AryVoxels;
-	UCPointArray	AryTextureID;
+	UCIntArray		AryTextureIDs;	// 顶点纹理ID数组（0表示无纹理，1表示第一个纹理）
 
 	UCVoxelTileData();
 	UCVoxelTileData(ucCONST UCVoxelTileData&);
