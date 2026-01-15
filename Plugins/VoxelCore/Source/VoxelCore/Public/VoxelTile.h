@@ -46,11 +46,11 @@ public:
 	 * @param TextureID 纹理ID
 	 * @param Layer 体素层
 	 * @param BlockType 砖块类型（0=方块, 1=斜面, 2=三角斜面）
-	 * @param Roll 绕头顶垂线旋转 (0-3，对应0°, 90°, 180°, 270°)
+	 * @param Yaw 绕头顶垂线旋转 (0-3，对应0°, 90°, 180°, 270°)
 	 * @param Pitch 俯仰角 (Slope: 0-2, TriSlope: 0-1)
 	 * @param bUpdateMesh 是否立即更新网格
 	 */
-	void SetVoxelWithBlockType(int32 X, int32 Y, int32 Z, uint8 TextureID, uint8 Layer, uint8 BlockType, uint8 Roll, uint8 Pitch, bool bUpdateMesh = true);
+	void SetVoxelWithBlockType(int32 X, int32 Y, int32 Z, uint8 TextureID, uint8 Layer, uint8 BlockType, uint8 Yaw, uint8 Pitch, bool bUpdateMesh = true);
 
 	/**
 	 * 获取体素数据
@@ -198,7 +198,7 @@ private:
 	void BuildMeshData();
 	
 	/** 获取面的所有三角形（FIntTriangle数组） */
-	void GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntVertex>& OutVertices, FVector& Normal, TArray<FIntVector>& OutFaceIndexes) const;
+	void GetFaceTriangles(int32 X, int32 Y, int32 Z, int32 FaceIndex, uint8 BlockType, int32 DirectionIndex, const UCVoxelData& Voxel, bool bFlat, TArray<FIntVertex>& OutVertices, TArray<FIntVector>& OutFaceIndexes) const;
 
 	/** 检查面的四个角是否都有相邻体素在同一高度（可用于合并） */
 	bool IsFaceFlat(int32 X, int32 Y, int32 Z, int32 FaceIndex) const;

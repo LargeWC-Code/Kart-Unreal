@@ -499,7 +499,7 @@ void UVoxelEditorEditTool::OnPlace(const FInputDeviceRay& PressPos, UVoxelTerrai
 
 						CurrentYaw = (CurrentYaw + 1) % 4;
 						// Get current Roll (Pitch) value
-						uint8 CurrentRoll = UCVoxelData_GetRoll(HitVoxel);
+						uint8 CurrentRoll = UCVoxelData_GetPitch(HitVoxel);
 
 						if (bModifyRoll)
 						{
@@ -996,8 +996,8 @@ void UVoxelEditorEditTool::OnClickRelease(const FInputDeviceRay& ReleasePos)
 				}
 			}
 			
-			// 计算YawRoll: Roll * 4 + Yaw
-			uint8 YawRoll = (RotationX & 0x03) * 4 + (RotationY & 0x03);
+			// 计算YawPitch: Roll * 4 + Yaw
+			uint8 YawPitch = (RotationX & 0x03) * 4 + (RotationY & 0x03);
 			Terrain->SetVoxelAtWorldPosition(PendingPlacementPos, 0, 1, BlockType, RotationX & 0x03, RotationY & 0x03, TargetWorld);
 			UE_LOG(LogTemp, Log, TEXT("Placed slope voxel at: (%d, %d, %d), Type: %d, BottomFace: %d, FrontFace: %d, RotationZ: %d"), 
 				PendingPlacementPos.X, PendingPlacementPos.Y, PendingPlacementPos.Z, BlockType, BottomFaceIndex, FrontFaceIndex, RotationZ);

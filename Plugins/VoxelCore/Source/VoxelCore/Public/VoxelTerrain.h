@@ -244,14 +244,14 @@ public:
 	 * @param TextureID 纹理ID（0表示删除）
 	 * @param Layer 体素层
 	 * @param BlockType 砖块类型（0=方块, 1=斜面, 2=三角斜面）
-	 * @param Roll 绕头顶垂线旋转 (0-3，对应0°, 90°, 180°, 270°)
+	 * @param Yaw 绕头顶垂线旋转 (0-3，对应0°, 90°, 180°, 270°)
 	 * @param Pitch 俯仰角 (Slope: 0-2, TriSlope: 0-1)
 	 * @param World 世界对象
 	 * @param bUpdateMesh 是否立即更新网格
 	 * @return 是否成功设置
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VoxelTerrain")
-	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 TextureID = 0, uint8 Layer = 1, uint8 BlockType = 0, uint8 Roll = 0, uint8 Pitch = 0, UWorld* World = nullptr, bool bUpdateMesh = true);
+	bool SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 TextureID = 0, uint8 Layer = 1, uint8 BlockType = 0, uint8 Yaw = 0, uint8 Pitch = 0, UWorld* World = nullptr, bool bUpdateMesh = true);
 
 	/**
 	 * 射线与Terrain的交集检测（参考UCPixelWorld::Intersect）

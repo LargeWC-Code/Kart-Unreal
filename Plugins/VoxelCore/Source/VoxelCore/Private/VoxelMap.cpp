@@ -14,7 +14,7 @@ SCRIPT_IMPLEMENT_BEGIN(UCE_UCVoxelData, UCVoxelData)
 	SCRIPT_PROPERTY(UCE_DWORD, TextureID)
 	SCRIPT_PROPERTY(UCE_DWORD, LayerID)
 	SCRIPT_PROPERTY(UCE_DWORD, Type)
-	SCRIPT_PROPERTY(UCE_BYTE, YawRoll)
+	SCRIPT_PROPERTY(UCE_BYTE, YawPitch)
 	SCRIPT_DECONSTRUCT();
 SCRIPT_IMPLEMENT_END(UCE_UCVoxelData)
 
@@ -242,7 +242,7 @@ ucVOID	UCVoxelMapManager::NewCurrentMap(UCSize Size)
 			EmptyVoxel.TextureID = 0;
 			EmptyVoxel.LayerID = UCVoxelData_Layer_Null;
 			EmptyVoxel.Type = UCVoxelBlockType_Cube;
-			UCVoxelData_SetYawAndRoll(EmptyVoxel, 0, 0);
+			UCVoxelData_SetYawAndPitch(EmptyVoxel, 0, 0);
 
 			for (ucINT i = 0; i < TotalVoxels; ++i)
 				TileData.AryVoxels[i] = EmptyVoxel.Data;
@@ -292,7 +292,7 @@ ucBOOL	UCVoxelMapManager::LoadMap(ucCONST UCString& Filename)
 	EmptyVoxel.TextureID = 0;
 	EmptyVoxel.LayerID = UCVoxelData_Layer_Null;
 	EmptyVoxel.Type = UCVoxelBlockType_Cube;
-	UCVoxelData_SetYawAndRoll(EmptyVoxel, 0, 0);
+	UCVoxelData_SetYawAndPitch(EmptyVoxel, 0, 0);
 
 	// 遍历所有 Tile，检查并初始化空数组
 	ucINT TileCount = Curr->_AryTiles.GetSize();

@@ -13,20 +13,26 @@ struct VOXELCORE_API FIntVertex
 	FIntVector V;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
+	FVector Normal;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
 	FIntVector2 UV;
+
 
 	UPROPERTY(BlueprintReadWrite, Category = "Voxel")
 	FColor Color;
 
 	FIntVertex()
 		: V(FIntVector::ZeroValue)
+		, Normal(0.0f, 0.0f, 0.0f)
 		, UV(FIntVector2::ZeroValue)
 		, Color(FColor::White)
 	{
 	}
 
-	FIntVertex(const FIntVector& InV, const FIntVector2& InUV, const FColor& InColor)
+	FIntVertex(const FIntVector& InV, const FVector& InNormal, const FIntVector2& InUV, const FColor& InColor)
 		: V(InV)
+		, Normal(InNormal)
 		, UV(InUV)
 		, Color(InColor)
 	{
@@ -123,7 +129,7 @@ struct VOXELCORE_API UCVoxelData
 			ucBYTE			TextureID;		// 8位：纹理ID（原来的Type）
 			ucBYTE			LayerID;		// 8位：层
 			ucBYTE			Type;			// 2位：砖块类型（0=方块, 1=斜面, 2=三角斜面, 3=三角斜面互补体）
-			ucBYTE			YawRoll;
+			ucBYTE			YawPitch;
 		};
 
 		ucDWORD				Data;
@@ -137,54 +143,54 @@ struct VOXELCORE_API UCVoxelData
 };
 
 // 辅助函数（用于位操作）
-// YawRoll组合值：
-// 对于Slope: YawRoll = Yaw * 3 + Roll（Yaw: 0-3四个方向，Roll: 0-2三个状态，总共12个方向）
-// 对于TriSlope: YawRoll = Yaw * 2 + Roll（Yaw: 0-3四个方向，Roll: 0-1两个状态，总共8个方向）
+// YawPitch组合值：
+// 对于Slope: YawPitch = Yaw * 3 + Pitch（Yaw: 0-3四个方向，Pitch: 0-2三个状态，总共12个方向）
+// 对于TriSlope: YawPitch = Yaw * 2 + Pitch（Yaw: 0-3四个方向，Pitch: 0-1两个状态，总共8个方向）
 // Yaw: 绕上下轴旋转（左右旋转），4个方向（0-3对应0°, 90°, 180°, 270°）
-// Roll: 绕前后轴旋转（相对自身转），Slope有3个状态（0=朝上, 1=朝中间, 2=朝下），TriSlope有2个状态（0=朝上, 1=朝下）
+// Pitch: 绕前后轴旋转（相对自身转），Slope有3个状态（0=朝上, 1=朝中间, 2=朝下），TriSlope有2个状态（0=朝上, 1=朝下）
 
 // 获取Yaw (0-3) - 左右旋转，四个方向
 inline ucBYTE UCVoxelData_GetYaw(ucCONST UCVoxelData& Voxel)
 {
-	// 对于Slope: Yaw = YawRoll / 3
-	// 对于TriSlope: Yaw = YawRoll / 2
-	// 由于YawRoll最大是11（Slope）或7（TriSlope），我们可以通过除以3或2来获取Yaw
-	// 但为了通用，我们使用位操作：高2位存储Yaw，低2位存储Roll
-	// 但这样YawRoll最大只能到15，对于Slope需要12个值，对于TriSlope需要8个值
+	// 对于Slope: Yaw = YawPitch / 3
+	// 对于TriSlope: Yaw = YawPitch / 2
+	// 由于YawPitch最大是11（Slope）或7（TriSlope），我们可以通过除以3或2来获取Yaw
+	// 但为了通用，我们使用位操作：高2位存储Yaw，低2位存储Pitch
+	// 但这样YawPitch最大只能到15，对于Slope需要12个值，对于TriSlope需要8个值
 	// 所以我们需要用不同的编码方式
-	// 实际上，我们可以用4位来存储：高2位是Yaw，低2位是Roll（但Roll只有0-2或0-1）
-	// 为了简化，我们使用：YawRoll = Yaw * 3 + Roll（Slope）或 YawRoll = Yaw * 2 + Roll（TriSlope）
+	// 实际上，我们可以用4位来存储：高2位是Yaw，低2位是Pitch（但Pitch只有0-2或0-1）
+	// 为了简化，我们使用：YawPitch = Yaw * 3 + Pitch（Slope）或 YawPitch = Yaw * 2 + Pitch（TriSlope）
 	// 但这样需要知道BlockType才能正确解码
-	// 暂时使用：高2位是Yaw，低2位是Roll（Roll的值会被限制在0-2或0-1）
-	return (ucBYTE)((Voxel.YawRoll >> 2) & 0x03); // 高2位是Yaw
+	// 暂时使用：高2位是Yaw，低2位是Pitch（Pitch的值会被限制在0-2或0-1）
+	return (ucBYTE)((Voxel.YawPitch >> 2) & 0x03); // 高2位是Yaw
 }
 
-// 获取Roll (0-3，但实际Slope只用到0-2，TriSlope只用到0-1) - 相对自身旋转
-inline ucBYTE UCVoxelData_GetRoll(ucCONST UCVoxelData& Voxel)
+// 获取Pitch (0-3，但实际Slope只用到0-2，TriSlope只用到0-1) - 相对自身旋转
+inline ucBYTE UCVoxelData_GetPitch(ucCONST UCVoxelData& Voxel)
 {
-	return (ucBYTE)(Voxel.YawRoll & 0x03); // 低2位是Roll
+	return (ucBYTE)(Voxel.YawPitch & 0x03); // 低2位是Pitch
 }
 
-// 设置Yaw和Roll
-inline ucVOID UCVoxelData_SetYawAndRoll(UCVoxelData& Voxel, ucBYTE Yaw, ucBYTE Roll)
+// 设置Yaw和Pitch
+inline ucVOID UCVoxelData_SetYawAndPitch(UCVoxelData& Voxel, ucBYTE Yaw, ucBYTE Pitch)
 {
-	Voxel.YawRoll = ((Yaw & 0x03) << 2) | (Roll & 0x03);
+	Voxel.YawPitch = ((Yaw & 0x03) << 2) | (Pitch & 0x03);
 }
 
-// 获取Slope的方向索引（0-11）：YawRoll = Yaw * 3 + Roll
+// 获取Slope的方向索引（0-11）：YawPitch = Yaw * 3 + Pitch
 inline ucBYTE UCVoxelData_GetSlopeDirectionIndex(ucCONST UCVoxelData& Voxel)
 {
 	uint8 Yaw = UCVoxelData_GetYaw(Voxel);
-	uint8 Roll = UCVoxelData_GetRoll(Voxel);
-	return (ucBYTE)(Yaw * 3 + Roll); // Yaw: 0-3, Roll: 0-2
+	uint8 Pitch = UCVoxelData_GetPitch(Voxel);
+	return (ucBYTE)(Yaw * 3 + Pitch); // Yaw: 0-3, Pitch: 0-2
 }
 
-// 获取TriSlope的方向索引（0-7）：YawRoll = Yaw * 2 + Roll
+// 获取TriSlope的方向索引（0-7）：YawPitch = Yaw * 2 + Pitch
 inline ucBYTE UCVoxelData_GetTriSlopeDirectionIndex(ucCONST UCVoxelData& Voxel)
 {
 	uint8 Yaw = UCVoxelData_GetYaw(Voxel);
-	uint8 Roll = UCVoxelData_GetRoll(Voxel);
-	return (ucBYTE)(Yaw * 2 + Roll); // Yaw: 0-3, Roll: 0-1
+	uint8 Pitch = UCVoxelData_GetPitch(Voxel);
+	return (ucBYTE)(Yaw * 2 + Pitch); // Yaw: 0-3, Pitch: 0-1
 }
 
 SCRIPT_DECLARE(VOXELCORE_API, UCE_UCVoxelData, UCVoxelData, ucTRUE);

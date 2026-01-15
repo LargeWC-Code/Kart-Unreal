@@ -387,7 +387,7 @@ void UVoxelTerrain::FillRegion(const FVector& Min, const FVector& Max, uint8 Vox
 		MinVoxelX, MinVoxelY, MinVoxelZ, MaxVoxelX, MaxVoxelY, MaxVoxelZ, VoxelType);
 }
 
-bool UVoxelTerrain::SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 TextureID, uint8 Layer, uint8 BlockType, uint8 Roll, uint8 Pitch, UWorld* World, bool bUpdateMesh)
+bool UVoxelTerrain::SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uint8 TextureID, uint8 Layer, uint8 BlockType, uint8 Yaw, uint8 Pitch, UWorld* World, bool bUpdateMesh)
 {
 	if (!World)
 	{
@@ -438,7 +438,7 @@ bool UVoxelTerrain::SetVoxelAtWorldPosition(const FIntVector& WorldPosition, uin
 	int32 StorageZ = LocalPos.Z + HalfTileSizeZ;
 
 	// 设置体素
-	Tile->SetVoxelWithBlockType(StorageX, StorageY, StorageZ, TextureID, Layer, BlockType, Roll, Pitch, bUpdateMesh);
+	Tile->SetVoxelWithBlockType(StorageX, StorageY, StorageZ, TextureID, Layer, BlockType, Yaw, Pitch, bUpdateMesh);
 
 	return true;
 }
