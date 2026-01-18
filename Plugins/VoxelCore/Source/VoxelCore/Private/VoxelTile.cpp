@@ -1081,7 +1081,7 @@ void AVoxelTile::UpdateMesh(bool Active)
 			MeshUpdateTimerHandle,
 			this,
 			&AVoxelTile::ExecuteMeshUpdate,
-			0.05f, // 1秒延迟
+			0.025f, // 1秒延迟
 			false // 不循环
 		);
 	}
