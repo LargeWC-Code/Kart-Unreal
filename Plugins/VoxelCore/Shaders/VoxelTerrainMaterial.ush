@@ -99,3 +99,207 @@ void VoxelTerrainPBRVertexColorAO(
     RoughnessOut = Roughness;
 }
 
+// ============================================
+// 多层纹理混合版本：支持4层纹理混合
+// ============================================
+// 输入参数:
+// Texture0-3: 4层纹理采样结果 (MaterialFloat3, 从MaterialExpressionTextureSample获取)
+// UV0-3: 4层UV坐标 (MaterialFloat2, 从UV0-UV3获取)
+// VertexColor: 顶点颜色，用于AO (MaterialFloat3)
+// BlendMode: 混合模式 (MaterialFloat, 0=叠加, 1=Alpha混合)
+//
+// 输出:
+// FinalBaseColor: 混合后的基础颜色 (MaterialFloat3)
+
+void VoxelTerrainMultiLayerBlend(
+    MaterialFloat3 Texture0,
+    MaterialFloat3 Texture1,
+    MaterialFloat3 Texture2,
+    MaterialFloat3 Texture3,
+    MaterialFloat2 UV0,
+    MaterialFloat2 UV1,
+    MaterialFloat2 UV2,
+    MaterialFloat2 UV3,
+    MaterialFloat3 VertexColor,
+    MaterialFloat BlendMode,
+    out MaterialFloat3 FinalBaseColor
+)
+{
+    // 检查每层纹理是否有效（通过UV是否为非零来判断）
+    MaterialFloat Layer0Active = step(0.001, abs(UV0.x) + abs(UV0.y));
+    MaterialFloat Layer1Active = step(0.001, abs(UV1.x) + abs(UV1.y));
+    MaterialFloat Layer2Active = step(0.001, abs(UV2.x) + abs(UV2.y));
+    MaterialFloat Layer3Active = step(0.001, abs(UV3.x) + abs(UV3.y));
+    
+    // 计算有效层数（用于平均混合）
+    MaterialFloat ActiveLayerCount = Layer0Active + Layer1Active + Layer2Active + Layer3Active;
+    ActiveLayerCount = max(ActiveLayerCount, 1.0); // 至少有一层
+    
+    // 叠加混合模式：简单叠加所有有效层
+    MaterialFloat3 BlendedColor = MaterialFloat3(0, 0, 0);
+    
+    if (BlendMode < 0.5)
+    {
+        // 叠加模式：所有层叠加，然后除以层数
+        BlendedColor = Texture0 * Layer0Active + 
+                      Texture1 * Layer1Active + 
+                      Texture2 * Layer2Active + 
+                      Texture3 * Layer3Active;
+        BlendedColor = BlendedColor / ActiveLayerCount;
+    }
+    else
+    {
+        // Alpha混合模式：从前到后逐层混合
+        BlendedColor = Texture0 * Layer0Active;
+        
+        // 如果第一层有效，从第二层开始混合
+        MaterialFloat3 Color1 = lerp(BlendedColor, Texture1, Layer1Active * 0.5);
+        BlendedColor = lerp(BlendedColor, Color1, Layer1Active);
+        
+        MaterialFloat3 Color2 = lerp(BlendedColor, Texture2, Layer2Active * 0.33);
+        BlendedColor = lerp(BlendedColor, Color2, Layer2Active);
+        
+        MaterialFloat3 Color3 = lerp(BlendedColor, Texture3, Layer3Active * 0.25);
+        BlendedColor = lerp(BlendedColor, Color3, Layer3Active);
+    }
+    
+    // 应用顶点颜色作为AO
+    MaterialFloat AOFactor = dot(VertexColor, MaterialFloat3(0.299, 0.587, 0.114));
+    AOFactor = lerp(0.4, 1.0, AOFactor);
+    
+    FinalBaseColor = BlendedColor * AOFactor;
+}
+
+// 简化的多层纹理混合（使用叠加模式）
+void VoxelTerrainMultiLayerBlendSimple(
+    MaterialFloat3 Texture0,
+    MaterialFloat3 Texture1,
+    MaterialFloat3 Texture2,
+    MaterialFloat3 Texture3,
+    MaterialFloat2 UV0,
+    MaterialFloat2 UV1,
+    MaterialFloat2 UV2,
+    MaterialFloat2 UV3,
+    out MaterialFloat3 FinalBaseColor
+)
+{
+    // 检查每层是否有效
+    MaterialFloat Layer0Active = step(0.001, abs(UV0.x) + abs(UV0.y));
+    MaterialFloat Layer1Active = step(0.001, abs(UV1.x) + abs(UV1.y));
+    MaterialFloat Layer2Active = step(0.001, abs(UV2.x) + abs(UV2.y));
+    MaterialFloat Layer3Active = step(0.001, abs(UV3.x) + abs(UV3.y));
+    
+    // 计算有效层数
+    MaterialFloat ActiveLayerCount = Layer0Active + Layer1Active + Layer2Active + Layer3Active;
+    ActiveLayerCount = max(ActiveLayerCount, 1.0);
+    
+    // 叠加所有有效层
+    MaterialFloat3 BlendedColor = Texture0 * Layer0Active + 
+                                  Texture1 * Layer1Active + 
+                                  Texture2 * Layer2Active + 
+                                  Texture3 * Layer3Active;
+    
+    FinalBaseColor = BlendedColor / ActiveLayerCount;
+}
+
+// ============================================
+// 使用顶点颜色RGB作为2、3、4层纹理开关的混合函数
+// ============================================
+// 输入参数:
+// Texture0: 基础层纹理，始终显示 (MaterialFloat3)
+// Texture1: 第二层纹理，由VertexColor.R控制 (MaterialFloat3)
+// Texture2: 第三层纹理，由VertexColor.G控制 (MaterialFloat3)
+// Texture3: 第四层纹理，由VertexColor.B控制 (MaterialFloat3)
+// UV0-3: 4层UV坐标 (MaterialFloat2)
+// VertexColor: 顶点颜色RGB，分别控制1、2、3层的混合强度 (MaterialFloat3)
+//               R通道控制Texture1，G通道控制Texture2，B通道控制Texture3
+// BlendMode: 混合模式 (MaterialFloat, 0=Lerp混合, 1=叠加混合)
+//
+// 输出:
+// FinalBaseColor: 混合后的基础颜色 (MaterialFloat3)
+
+void VoxelTerrainMultiLayerRGBBlend(
+    MaterialFloat3 Texture0,
+    MaterialFloat3 Texture1,
+    MaterialFloat3 Texture2,
+    MaterialFloat3 Texture3,
+    MaterialFloat2 UV0,
+    MaterialFloat2 UV1,
+    MaterialFloat2 UV2,
+    MaterialFloat2 UV3,
+    MaterialFloat3 VertexColor,
+    MaterialFloat BlendMode,
+    out MaterialFloat3 FinalBaseColor
+)
+{
+    // Texture0作为基础层，始终显示
+    MaterialFloat3 BlendedColor = Texture0;
+    
+    // 检查各层UV是否有效（通过UV是否为非零来判断）
+    MaterialFloat Layer1UVActive = step(0.001, abs(UV1.x) + abs(UV1.y));
+    MaterialFloat Layer2UVActive = step(0.001, abs(UV2.x) + abs(UV2.y));
+    MaterialFloat Layer3UVActive = step(0.001, abs(UV3.x) + abs(UV3.y));
+    
+    // 使用顶点颜色的RGB通道作为各层的混合权重
+    // R通道控制Texture1，G通道控制Texture2，B通道控制Texture3
+    MaterialFloat Layer1Weight = VertexColor.r * Layer1UVActive;
+    MaterialFloat Layer2Weight = VertexColor.g * Layer2UVActive;
+    MaterialFloat Layer3Weight = VertexColor.b * Layer3UVActive;
+    
+    if (BlendMode < 0.5)
+    {
+        // Lerp混合模式：根据权重从基础层渐变到各层
+        BlendedColor = lerp(BlendedColor, Texture1, Layer1Weight);
+        BlendedColor = lerp(BlendedColor, Texture2, Layer2Weight);
+        BlendedColor = lerp(BlendedColor, Texture3, Layer3Weight);
+    }
+    else
+    {
+        // 叠加混合模式：根据权重叠加各层
+        // 计算总权重，用于归一化
+        MaterialFloat TotalWeight = 1.0 + Layer1Weight + Layer2Weight + Layer3Weight;
+        TotalWeight = max(TotalWeight, 1.0); // 防止除零
+        
+        BlendedColor = (Texture0 + 
+                       Texture1 * Layer1Weight + 
+                       Texture2 * Layer2Weight + 
+                       Texture3 * Layer3Weight) / TotalWeight;
+    }
+    
+    FinalBaseColor = BlendedColor;
+}
+
+// 简化版本：只使用Lerp混合模式
+void VoxelTerrainMultiLayerRGBBlendSimple(
+    MaterialFloat3 Texture0,
+    MaterialFloat3 Texture1,
+    MaterialFloat3 Texture2,
+    MaterialFloat3 Texture3,
+    MaterialFloat2 UV1,
+    MaterialFloat2 UV2,
+    MaterialFloat2 UV3,
+    MaterialFloat3 VertexColor,
+    out MaterialFloat3 FinalBaseColor
+)
+{
+    // Texture0作为基础层
+    MaterialFloat3 BlendedColor = Texture0;
+    
+    // 检查UV是否有效
+    MaterialFloat Layer1UVActive = step(0.001, abs(UV1.x) + abs(UV1.y));
+    MaterialFloat Layer2UVActive = step(0.001, abs(UV2.x) + abs(UV2.y));
+    MaterialFloat Layer3UVActive = step(0.001, abs(UV3.x) + abs(UV3.y));
+    
+    // 使用RGB通道作为混合权重
+    MaterialFloat Layer1Weight = VertexColor.r * Layer1UVActive;
+    MaterialFloat Layer2Weight = VertexColor.g * Layer2UVActive;
+    MaterialFloat Layer3Weight = VertexColor.b * Layer3UVActive;
+    
+    // Lerp混合
+    BlendedColor = lerp(BlendedColor, Texture1, Layer1Weight);
+    BlendedColor = lerp(BlendedColor, Texture2, Layer2Weight);
+    BlendedColor = lerp(BlendedColor, Texture3, Layer3Weight);
+    
+    FinalBaseColor = BlendedColor;
+}
+

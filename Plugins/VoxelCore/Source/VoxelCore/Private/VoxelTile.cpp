@@ -1,4 +1,4 @@
-/********************************************************************
+﻿/********************************************************************
 created:	2024/12/XX
 filename: 	VoxelTile.cpp
 author:		Auto Generated
@@ -926,7 +926,7 @@ void AVoxelTile::BuildMeshData()
 
 						for (int32 i = 0; i < MapTextureIDs.GetSize(); i++)
 						{
-							int32 TextureID = MapTextureIDs.GetValueAt(i);
+							int64 TextureID = MapTextureIDs.GetValueAt(i);
 
 							TextureKey |= (TextureID << (16 * i));
 						}
@@ -935,7 +935,7 @@ void AVoxelTile::BuildMeshData()
 					// 获取或创建对应的MeshSection
 					FMeshSectionData& SectionData = MeshSections.FindOrAdd(TextureKey);
 					
-					int32 RandBlockID = randint(16, 31);
+					int32 RandBlockID = randint(0, 10) == 10 ? randint(16, 31) : 0;
 
 					TArray<int32> AryCornerTextureID;
 					for (ucINT i = 0; i < FaceVertices.Num(); i++)
@@ -943,21 +943,22 @@ void AVoxelTile::BuildMeshData()
 						// 获取第一个顶点的世界坐标（已乘以2）
 						FIntVector VertexWorldPos = FaceVertices[i].V;
 
-						// 从 AryTextureBlockInfo 获取4层纹理信息
-						if (TileData && TileData->AryTextureIDs.GetSize() > 0 && FaceVertices.Num() > 0)
+						FIntVector VertexPos = VertexWorldPos / 2 + HalfSize;
+						int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
+
+						if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
 						{
-							FIntVector VertexPos = VertexWorldPos / 2 + HalfSize;
-							int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
+							int32 TextureID = TileData->AryTextureIDs[UVIndex];
+							FWar3TextureInfo TextureInfo = GetTextureInfoByID(TextureID);
 
-							if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
-							{
-								int32 TextureID = TileData->AryTextureIDs[UVIndex];
-								FWar3TextureInfo TextureInfo = GetTextureInfoByID(TextureID);
-
-								AryCornerTextureID.Add(TextureID);
-							}
+							AryCornerTextureID.Add(TextureID);
 						}
 					}
+
+					ucINT TextureSize = MapTextureIDs.GetSize();
+					if (TextureSize > 2)
+						ucINT A = 0;
+					
 					int32 TotalBlockID[4] = { 0, 0, 0, 0 };
 					if (AryCornerTextureID.Num() == 4 || AryCornerTextureID.Num() == 5)
 					{
@@ -966,7 +967,10 @@ void AVoxelTile::BuildMeshData()
 							int32 TextureID = AryCornerTextureID[i];
 							ucINT UVPos = MapTextureIDs.FindKey(TextureID);
 
-							TotalBlockID[UVPos] |= 1 << i;
+							ucINT UV_Y = i / 2;
+							ucINT UV_X = i % 2;
+
+							TotalBlockID[UVPos] |= 1 << (UV_Y * 2 + (1 - UV_X));
 						}
 					}
 
@@ -990,17 +994,21 @@ void AVoxelTile::BuildMeshData()
 						SectionData.Normals.Add(FaceVertices[i].Normal);
 
 						FVector2D BaseUV((float)FaceVertices[i].UV.X / 2.0f, (float)FaceVertices[i].UV.Y / 2.0f);
-												
+
 						// 处理4层纹理（UVs0[0] 到 UVs0[3]）
-						FVector2D LayerUVs[4] = { BaseUV, FVector2D(0, 0), FVector2D(0, 0), FVector2D(0, 0) };
+						FVector2D LayerUVs[4] = { FVector2D(0, 0), FVector2D(0, 0), FVector2D(0, 0), FVector2D(0, 0) };
 						for (ucINT j = 0; j < MapTextureIDs.GetSize(); j++)
 						{
 							int32 TextureID = MapTextureIDs.GetValueAt(j);
-							ucINT UVPos = MapTextureIDs.FindKey(TextureID);
-							int32 TextureBlockID = TotalBlockID[UVPos];
+							int32 TextureBlockID = TotalBlockID[j];
 
 							FWar3TextureInfo TextureInfo = GetTextureInfoByID(TextureID);
 
+							float MinU = 8.0f / (float)TextureInfo.TextureWidth;
+							float MinV = 8.0f / (float)TextureInfo.TextureHeight;
+							BaseUV.X = FMath::Clamp(FMath::Abs(BaseUV.X), MinU, 1.0f - MinU);
+							BaseUV.Y = FMath::Clamp(FMath::Abs(BaseUV.Y), MinV, 1.0f - MinV);
+							
 							// 计算该层的UV
 							int32 U = TextureBlockID / 4;
 							int32 V = TextureBlockID % 4;
@@ -1010,7 +1018,7 @@ void AVoxelTile::BuildMeshData()
 							else
 								CalculatedUV = FVector2D((U + FMath::Abs(BaseUV.X)) * 0.25f, (V + FMath::Abs(BaseUV.Y)) * 0.25f);
 
-							LayerUVs[UVPos] = CalculatedUV;
+							LayerUVs[j] = CalculatedUV;
 						}
 
 						// 每个顶点都有所有层的UV数据（即使某些层是(0,0)）
@@ -1018,10 +1026,14 @@ void AVoxelTile::BuildMeshData()
 						SectionData.UVs1.Add(LayerUVs[1]);  // UV1 - 第二层
 						SectionData.UVs2.Add(LayerUVs[2]);  // UV2 - 第三层
 						SectionData.UVs3.Add(LayerUVs[3]);  // UV3 - 第四层
+
+						FColor VertexColor;
+						VertexColor.R = TextureSize > 1 ? 255 : 0;  // 第2层纹理开关
+						VertexColor.G = TextureSize > 2 ? 255 : 0;  // 第3层纹理开关
+						VertexColor.B = TextureSize > 3 ? 255 : 0;  // 第4层纹理开关
+						VertexColor.A = FaceVertices[i].Color.A;  // 保持原有的Alpha通道
 						
-						// 如果从 AryTextureBlockInfo 获取到了 TextureID，使用它来设置顶点颜色或材质
-						// 这里先保持原有的颜色逻辑，后续可以通过材质参数传递 TextureID
-						SectionData.VertexColors.Add(FaceVertices[i].Color);
+						SectionData.VertexColors.Add(VertexColor);
 						SectionData.Tangents.Add(FProcMeshTangent(0, 0, 1));
 					}
 					for (const FIntVector& Face : TrianglesToRender)
@@ -1137,30 +1149,25 @@ void AVoxelTile::ExecuteMeshUpdate()
 			UMaterialInstanceDynamic* SectionMaterial = UMaterialInstanceDynamic::Create(Material, this);
 			
 			// 设置4层纹理参数（根据TextureID从纹理列表中获取）
-			// TextureID从0开始（0表示无纹理，1表示第一个纹理），所以索引是TextureID-1
+			// TextureID从0开始（0表示第一个纹理）
 			for (int32 LayerIndex = 0; LayerIndex < 4; ++LayerIndex)
 			{
 				FName TextureParamName = FName(*FString::Printf(TEXT("Texture%d"), LayerIndex));
 				UTexture2D* LayerTexture = nullptr;
 				
 				// 根据该层的TextureID获取纹理
-				uint16 LayerTextureID = 0;
+				uint16 LayerTextureID = -1;
 				if (LayerIndex == 0) LayerTextureID = TextureID0;
 				else if (LayerIndex == 1) LayerTextureID = TextureID1;
 				else if (LayerIndex == 2) LayerTextureID = TextureID2;
 				else if (LayerIndex == 3) LayerTextureID = TextureID3;
 				
-				// TextureID从1开始（0表示无纹理），所以索引是TextureID-1
-				if (LayerTextureID > 0 && (LayerTextureID - 1) < TextureList.Num())
-				{
-					LayerTexture = TextureList[LayerTextureID - 1];
-				}
+				// TextureID从0开始
+				if (LayerTextureID >= 0 && LayerTextureID < TextureList.Num())
+					LayerTexture = TextureList[LayerTextureID];
 				else if (TextureList.Num() > 0)
-				{
-					// 如果该层没有对应的纹理，使用第一个纹理作为默认值
 					LayerTexture = TextureList[0];
-				}
-				
+
 				if (LayerTexture)
 				{
 					SectionMaterial->SetTextureParameterValue(TextureParamName, LayerTexture);

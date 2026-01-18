@@ -1337,6 +1337,20 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 		AVoxelWorldEditor* WorldEditor = VoxelWorldEditorInstance.Get();
 		if (WorldEditor)
 		{
+			// 创建一个自定义的Brush类来设置UV区域
+			// 由于FSlateBrush的UVRegion是protected，我们创建一个继承类
+			struct FCustomSlateBrush : public FSlateBrush
+			{
+				FCustomSlateBrush(UTexture2D* InTexture, const FBox2f& InUVRegion)
+				{
+					SetResourceObject(InTexture);
+					ImageSize = FVector2D(InTexture->GetSizeX(), InTexture->GetSizeY());
+					DrawAs = ESlateBrushDrawType::Image;
+					Tiling = ESlateBrushTileType::NoTile;
+					UVRegion = InUVRegion; // 在构造函数中可以访问protected成员
+				}
+			};
+			
 			UCVoxelMapManager& MapManager = WorldEditor->GetMapManager();
 			int32 TextureCount = MapManager.TextureConfig.AryTexturePaths.GetSize();
 			
@@ -1347,7 +1361,9 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 				int32 TextureIndex = i; // 捕获索引
 				
 				// 为每个纹理创建画笔（不使用静态缓存，每次都重新加载以确保刷新）
-				const FSlateBrush* Brush = nullptr;
+				TSharedPtr<FCustomSlateBrush> CustomBrush;
+				TWeakObjectPtr<UTexture2D> TextureWeakPtr; // 保存纹理的弱引用，用于检查有效性
+				const FSlateBrush* DefaultBrush = FAppStyle::GetBrush("WhiteBrush");
 				
 				// 加载纹理
 				UCString TexturePathUC = MapManager.TextureConfig.AryTexturePaths[TextureIndex];
@@ -1366,6 +1382,12 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 							UTexture2D* Texture = FImageUtils::ImportBufferAsTexture2D(ImageData);
 							if (Texture)
 							{
+								// 将纹理添加到根集，防止被垃圾回收
+								Texture->AddToRoot();
+								
+								// 保存纹理的弱引用
+								TextureWeakPtr = Texture;
+								
 								// 获取纹理尺寸
 								int32 TextureWidth = Texture->GetSizeX();
 								int32 TextureHeight = Texture->GetSizeY();
@@ -1390,39 +1412,44 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 									);
 								}
 								
-								// 创建一个自定义的Brush类来设置UV区域
-								// 由于FSlateBrush的UVRegion是protected，我们创建一个继承类
-								struct FCustomSlateBrush : public FSlateBrush
-								{
-									FCustomSlateBrush(UTexture2D* InTexture, const FBox2f& InUVRegion)
-									{
-										SetResourceObject(InTexture);
-										ImageSize = FVector2D(InTexture->GetSizeX(), InTexture->GetSizeY());
-										DrawAs = ESlateBrushDrawType::Image;
-										Tiling = ESlateBrushTileType::NoTile;
-										UVRegion = InUVRegion; // 在构造函数中可以访问protected成员
-									}
-								};
-								
-								// 创建自定义画笔
-								TSharedPtr<FCustomSlateBrush> CustomBrush = MakeShareable(
+								// 创建自定义画笔，使用TSharedPtr确保生命周期
+								CustomBrush = MakeShareable(
 									new FCustomSlateBrush(Texture, UVRegion)
 								);
 								
-								// 将画笔保存到静态缓存中（使用路径作为键）
+								// 将画笔和纹理保存到静态缓存中（使用路径作为键）
 								static TMap<FString, TSharedPtr<FSlateBrush>> TextureBrushCache;
+								static TMap<FString, TWeakObjectPtr<UTexture2D>> TextureCache;
 								TextureBrushCache.Add(FullTexturePath, CustomBrush);
-								Brush = CustomBrush.Get();
+								TextureCache.Add(FullTexturePath, TextureWeakPtr);
 							}
 						}
 					}
 				}
 				
-				// 如果没有加载成功，使用默认的灰色画笔
-				if (!Brush)
-				{
-					Brush = FAppStyle::GetBrush("WhiteBrush");
-				}
+				// 使用Lambda来动态获取Brush，确保在渲染时Brush和纹理仍然有效
+				// 通过捕获CustomBrush的TSharedPtr和TextureWeakPtr，确保Widget持有引用，防止被销毁
+				TAttribute<const FSlateBrush*> BrushAttribute = TAttribute<const FSlateBrush*>::Create(
+					[CustomBrush, TextureWeakPtr, DefaultBrush]() -> const FSlateBrush*
+					{
+						// 检查CustomBrush和纹理是否都有效
+						if (CustomBrush.IsValid() && TextureWeakPtr.IsValid())
+						{
+							// 检查纹理对象是否仍然有效（未被垃圾回收）
+							UTexture2D* Texture = TextureWeakPtr.Get();
+							if (IsValid(Texture))
+							{
+								const FSlateBrush* Brush = CustomBrush.Get();
+								if (Brush)
+								{
+									return Brush;
+								}
+							}
+						}
+						// 如果任何对象无效，使用默认Brush
+						return DefaultBrush;
+					}
+				);
 				
 				VerticalBox->AddSlot()
 					.AutoHeight()
@@ -1467,7 +1494,7 @@ TSharedPtr<SWidget> FVoxelEditorEditorModeToolkit::BuildTextureListWidget() cons
 									.HeightOverride(60.0f)
 									[
 										SNew(SImage)
-										.Image(Brush)
+										.Image(BrushAttribute)
 									]
 								]
 								// 右侧：文字和删除按钮
