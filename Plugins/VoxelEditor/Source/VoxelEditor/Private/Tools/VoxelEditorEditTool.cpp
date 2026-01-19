@@ -355,6 +355,13 @@ void UVoxelEditorEditTool::OnPlace(const FInputDeviceRay& PressPos, UVoxelTerrai
 			// 计算顶点索引
 			int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
 			
+			for (auto& Pair : HitTile->MeshSections)
+			{
+				int32* ValutPtr = Pair.Value.MapVertices.Find(UVIndex);
+				if (ValutPtr)
+					Pair.Value.Dirty = true;
+			}
+
 			if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
 			{
 				// 直接更新TextureID（0表示无纹理，1表示第一个纹理）

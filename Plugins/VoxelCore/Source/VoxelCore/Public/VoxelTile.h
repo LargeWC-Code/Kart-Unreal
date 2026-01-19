@@ -32,6 +32,40 @@ public:
 	/** 是否激活 */
 	bool bIsActive;
 
+	/** 网格重建时使用的临时数据（按TextureID分组） */
+	struct FMeshSectionData
+	{
+		TArray<FVector> Vertices;
+		TArray<int32> Triangles;
+		TArray<FVector> Normals;
+		TArray<FVector2D> UVs0; // UV0 - 第一层
+		TArray<FVector2D> UVs1; // UV1 - 第二层
+		TArray<FVector2D> UVs2; // UV2 - 第三层
+		TArray<FVector2D> UVs3; // UV3 - 第四层
+		TArray<FColor> VertexColors;
+		TArray<FProcMeshTangent> Tangents;
+
+		bool				Dirty = true;
+		int32				Index = -1;
+		TMap<int32, int32>	MapVertices;
+		void Clear()
+		{
+			Dirty = true;
+			Index = -1;
+			Vertices.Empty();
+			Triangles.Empty();
+			Normals.Empty();
+			UVs0.Empty();
+			UVs1.Empty();
+			UVs2.Empty();
+			UVs3.Empty();
+			VertexColors.Empty();
+			Tangents.Empty();
+		}
+	};
+
+	/** 按TextureID分组的网格数据（key是4个顶点TextureID排序后组合成的int64） */
+	TMap<int64, FMeshSectionData> MeshSections;	
 	// ========== 地块坐标 ==========
 	
 	/** 地块坐标（X, Y） */
@@ -225,38 +259,6 @@ private:
 	/** Material Instance Dynamic（用于运行时设置纹理） */
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> MaterialInstanceDynamic;
-
-	/** 网格重建时使用的临时数据（按TextureID分组） */
-	struct FMeshSectionData
-	{
-		TArray<FVector> Vertices;
-		TArray<int32> Triangles;
-		TArray<FVector> Normals;
-		TArray<FVector2D> UVs0; // UV0 - 第一层
-		TArray<FVector2D> UVs1; // UV1 - 第二层
-		TArray<FVector2D> UVs2; // UV2 - 第三层
-		TArray<FVector2D> UVs3; // UV3 - 第四层
-		TArray<FColor> VertexColors;
-		TArray<FProcMeshTangent> Tangents;
-		
-		void Clear()
-		{
-			Vertices.Empty();
-			Triangles.Empty();
-			Normals.Empty();
-			UVs0.Empty();
-			UVs1.Empty();
-			UVs2.Empty();
-			UVs3.Empty();
-			VertexColors.Empty();
-			Tangents.Empty();
-		}
-	};
-	
-	/** 按TextureID分组的网格数据（key是4个顶点TextureID排序后组合成的int64） */
-	TMap<int64, FMeshSectionData> MeshSections;
-
-	// ========== 网格更新节流 ==========
 	
 	/** 是否已请求刷新（激活标志） */
 	bool bMeshUpdatePending;

@@ -1,4 +1,4 @@
-﻿/********************************************************************
+/********************************************************************
 created:	2024/12/XX
 filename: 	VoxelTile.cpp
 author:		Auto Generated
@@ -934,7 +934,9 @@ void AVoxelTile::BuildMeshData()
 					
 					// 获取或创建对应的MeshSection
 					FMeshSectionData& SectionData = MeshSections.FindOrAdd(TextureKey);
-					
+					if (!SectionData.Dirty)
+						continue;
+
 					int32 RandBlockID = randint(0, 10) == 10 ? randint(16, 31) : 0;
 
 					TArray<int32> AryCornerTextureID;
@@ -946,6 +948,7 @@ void AVoxelTile::BuildMeshData()
 						FIntVector VertexPos = VertexWorldPos / 2 + HalfSize;
 						int32 UVIndex = (VertexPos.Z + 1) * UVSizeY * UVSizeX + (VertexPos.Y + 1) * UVSizeX + (VertexPos.X + 1);
 
+						SectionData.MapVertices.Add(UVIndex, UVIndex);
 						if (UVIndex >= 0 && UVIndex < TileData->AryTextureIDs.GetSize())
 						{
 							int32 TextureID = TileData->AryTextureIDs[UVIndex];
@@ -956,8 +959,6 @@ void AVoxelTile::BuildMeshData()
 					}
 
 					ucINT TextureSize = MapTextureIDs.GetSize();
-					if (TextureSize > 2)
-						ucINT A = 0;
 					
 					int32 TotalBlockID[4] = { 0, 0, 0, 0 };
 					if (AryCornerTextureID.Num() == 4 || AryCornerTextureID.Num() == 5)
@@ -1054,7 +1055,7 @@ void AVoxelTile::UpdateMesh(bool Active)
 	if (bMeshUpdatePending)
 		return;
 
-	ClearMeshData();
+	//ClearMeshData();
 	if (!Active)
 	{
 		// 清除所有MeshSection
@@ -1067,6 +1068,15 @@ void AVoxelTile::UpdateMesh(bool Active)
 
 	// 标记有待处理的刷新
 	bMeshUpdatePending = true;
+
+	for (auto& Pair : MeshSections)
+	{
+		FMeshSectionData& SectionData = Pair.Value;
+		if (!SectionData.Dirty)
+			continue;
+		SectionData.MapVertices.Empty();
+	}
+
 	// 构建网格数据
 	BuildMeshData();
 	
@@ -1098,10 +1108,14 @@ void AVoxelTile::ExecuteMeshUpdate()
 	bMeshUpdatePending = false;
 	
 	// 清除所有现有的MeshSection
-	for (int32 SectionIndex = 0; SectionIndex < ProceduralMesh->GetNumSections(); ++SectionIndex)
-	{
-		ProceduralMesh->ClearMeshSection(SectionIndex);
-	}
+// 	for (int32 SectionIndex = 0; SectionIndex < ProceduralMesh->GetNumSections(); ++SectionIndex)
+// 	{
+// 		for (auto& pair : MeshSections)
+// 		{
+// 			if (pair.Value.Dirty)
+// 				ProceduralMesh->ClearMeshSection(SectionIndex);
+// 		}
+// 	}
 	
 	// 获取纹理列表
 	TArray<UTexture2D*> TextureList;
@@ -1111,7 +1125,6 @@ void AVoxelTile::ExecuteMeshUpdate()
 	}
 	
 	// 为每个TextureKey创建独立的MeshSection（DrawCall）
-	int32 SectionIndex = 0;
 	for (auto& Pair : MeshSections)
 	{
 		int64 TextureKey = Pair.Key;  // 4个顶点TextureID排序后组合成的int64
@@ -1120,10 +1133,16 @@ void AVoxelTile::ExecuteMeshUpdate()
 		// 跳过空的Section
 		if (SectionData.Vertices.Num() == 0 || SectionData.Triangles.Num() == 0)
 			continue;
+ 		if (!SectionData.Dirty)
+ 			continue;
 		
+		if (SectionData.Index == -1)
+			SectionData.Index = ProceduralMesh->GetNumSections();
+		
+		ProceduralMesh->ClearMeshSection(SectionData.Index);
 		// 创建MeshSection
 		ProceduralMesh->CreateMeshSection(
-			SectionIndex,
+			SectionData.Index,
 			SectionData.Vertices,
 			SectionData.Triangles,
 			SectionData.Normals,
@@ -1135,7 +1154,7 @@ void AVoxelTile::ExecuteMeshUpdate()
 			SectionData.Tangents,
 			true // 启用碰撞
 		);
-		
+
 		// 为每个Section设置材质
 		if (Material)
 		{
@@ -1144,24 +1163,24 @@ void AVoxelTile::ExecuteMeshUpdate()
 			uint16 TextureID1 = (uint16)((TextureKey >> 16) & 0xFFFF);
 			uint16 TextureID2 = (uint16)((TextureKey >> 32) & 0xFFFF);
 			uint16 TextureID3 = (uint16)((TextureKey >> 48) & 0xFFFF);
-			
+
 			// 为这个Section创建MaterialInstanceDynamic
 			UMaterialInstanceDynamic* SectionMaterial = UMaterialInstanceDynamic::Create(Material, this);
-			
+
 			// 设置4层纹理参数（根据TextureID从纹理列表中获取）
 			// TextureID从0开始（0表示第一个纹理）
 			for (int32 LayerIndex = 0; LayerIndex < 4; ++LayerIndex)
 			{
 				FName TextureParamName = FName(*FString::Printf(TEXT("Texture%d"), LayerIndex));
 				UTexture2D* LayerTexture = nullptr;
-				
+
 				// 根据该层的TextureID获取纹理
 				uint16 LayerTextureID = -1;
 				if (LayerIndex == 0) LayerTextureID = TextureID0;
 				else if (LayerIndex == 1) LayerTextureID = TextureID1;
 				else if (LayerIndex == 2) LayerTextureID = TextureID2;
 				else if (LayerIndex == 3) LayerTextureID = TextureID3;
-				
+
 				// TextureID从0开始
 				if (LayerTextureID >= 0 && LayerTextureID < TextureList.Num())
 					LayerTexture = TextureList[LayerTextureID];
@@ -1178,18 +1197,17 @@ void AVoxelTile::ExecuteMeshUpdate()
 					SectionMaterial->SetTextureParameterValue(TextureParamName, nullptr);
 				}
 			}
-						
-			ProceduralMesh->SetMaterial(SectionIndex, SectionMaterial);
+
+			ProceduralMesh->SetMaterial(SectionData.Index, SectionMaterial);
 		}
 		else
 		{
-			ProceduralMesh->SetMaterial(SectionIndex, nullptr);
+			ProceduralMesh->SetMaterial(SectionData.Index, nullptr);
 		}
-		
-		SectionIndex++;
 	}
 	
-	UE_LOG(LogTemp, Log, TEXT("AVoxelTile::ExecuteMeshUpdate: Created %d mesh sections"), SectionIndex);
+	for (auto& Pair : MeshSections)
+		Pair.Value.Dirty = false;
 }
 
 void AVoxelTile::SetTextureToMaterial(int32 TextureID, UTexture2D* Texture)
